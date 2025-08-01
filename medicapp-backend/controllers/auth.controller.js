@@ -12,20 +12,17 @@ const register = async (req, res) => {
       return res.status(400).json({ message: 'El usuario ya existe' });
     }
 
-    // Hashear contraseña
-    const password_hash = await bcrypt.hash(password, 10);
-
-    // Crear usuario
+    // Crear usuario - No hashear la contraseña aquí, el modelo lo hará automáticamente
     const user = await User.create({
       nombre,
       email,
-      password_hash,
+      password_hash: password, // El hook beforeCreate en el modelo User se encargará de hashear
       rol: rol || 'paciente'
     });
 
     // Generar token
     const token = jwt.sign(
-      { id: user.id, email: user.email, rol: user.rol },
+      { id: user.id, email: user.email, rol: user.rol, dni: user.dni || '' },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -42,7 +39,7 @@ const register = async (req, res) => {
     });
   } catch (error) {
     console.error('Error en registro:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 };
 
@@ -50,21 +47,27 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log(`Intento de login para: ${email}`);
+
     // Buscar usuario
     const user = await User.findOne({ where: { email } });
     if (!user) {
+      console.log(`Usuario no encontrado: ${email}`);
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
-    // Verificar contraseña
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    // Verificar contraseña usando el método del modelo
+    const isValidPassword = await user.checkPassword(password);
     if (!isValidPassword) {
+      console.log(`Contraseña incorrecta para: ${email}`);
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
+
+    console.log(`Login exitoso para: ${email}, rol: ${user.rol}`);
 
     // Generar token
     const token = jwt.sign(
-      { id: user.id, email: user.email, rol: user.rol },
+      { id: user.id, email: user.email, rol: user.rol, dni: user.dni || '' },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -81,7 +84,7 @@ const login = async (req, res) => {
     });
   } catch (error) {
     console.error('Error en login:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 };
 

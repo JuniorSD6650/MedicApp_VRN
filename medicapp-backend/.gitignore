@@ -9,3 +9,5 @@ node_modules/
 
 uploads/.*
 !uploads/.gitkeep
+
+scripts/*.js

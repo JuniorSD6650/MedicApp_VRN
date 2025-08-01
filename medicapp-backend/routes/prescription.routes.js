@@ -20,26 +20,33 @@ const {
   deletePrescriptionItem
 } = require('../controllers/prescription.controller');
 
-// Middleware de autenticación simplificado
+// Importar el middleware de autenticación real
+const { verifyToken } = require('../middleware/auth');
+
+const router = express.Router();
+
+// Middleware de autenticación mejorado
 const authenticateToken = (req, res, next) => {
-  // Este es un middleware temporal para permitir que la aplicación funcione
-  console.warn('Usando middleware de autenticación provisional');
+  // Si ya hay información de usuario (de un token JWT), usarla
+  if (req.user && req.user.id) {
+    console.log('Usando información de usuario del token JWT:', req.user.rol);
+    return next();
+  }
   
-  // Simulamos un usuario autenticado para pruebas
+  // Si no hay info de usuario, usar valores por defecto
+  console.warn('Usando middleware de autenticación provisional');
   req.user = {
     id: 1,
     dni: '12345678',
     nombre: 'Usuario de Prueba',
-    rol: 'paciente'
+    rol: 'profesional' // Cambiado a profesional para pruebas
   };
   
   next();
 };
 
-const router = express.Router();
-
-// Aplicar autenticación a todas las rutas
-router.use(authenticateToken);
+// Aplicar autenticación a todas las rutas usando el middleware real
+router.use(verifyToken);
 
 // CRUD para Prescriptions
 // CREATE - Crear una nueva receta médica

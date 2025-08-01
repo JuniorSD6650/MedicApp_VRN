@@ -166,11 +166,11 @@ const getMedicationHistory = async (req, res) => {
   try {
     const { patientId } = req.params;
     
-    // Verificar que el usuario es un profesional
-    if (req.user.rol !== 'profesional') {
+    // Verificar que el usuario es un profesional o médico
+    if (req.user.rol !== 'profesional' && req.user.rol !== 'medico') {
       return res.status(403).json({ 
         success: false, 
-        message: 'Acceso denegado. Solo profesionales pueden ver historiales' 
+        message: 'Acceso denegado. Solo profesionales y médicos pueden ver historiales' 
       });
     }
     
@@ -433,10 +433,10 @@ const createPrescription = async (req, res) => {
     }
     
     // Verificar que el profesional es quien está creando la receta
-    if (req.user.rol !== 'profesional') {
+    if (req.user.rol !== 'profesional' && req.user.rol !== 'medico') {
       return res.status(403).json({
         success: false,
-        message: 'Solo los profesionales pueden crear recetas'
+        message: 'Solo los profesionales y médicos pueden crear recetas'
       });
     }
     
@@ -553,7 +553,7 @@ const updatePrescription = async (req, res) => {
     }
     
     // Verificar permisos: solo profesionales pueden actualizar
-    if (req.user.rol !== 'profesional' || prescription.profesional_id !== req.user.id) {
+    if ((req.user.rol !== 'profesional' && req.user.rol !== 'medico') || prescription.profesional_id !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'No tienes permiso para modificar esta receta'
@@ -625,7 +625,7 @@ const deletePrescription = async (req, res) => {
     }
     
     // Verificar permisos: solo profesionales pueden eliminar
-    if (req.user.rol !== 'profesional' || prescription.profesional_id !== req.user.id) {
+    if ((req.user.rol !== 'profesional' && req.user.rol !== 'medico') || prescription.profesional_id !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'No tienes permiso para eliminar esta receta'
@@ -677,7 +677,7 @@ const createPrescriptionItem = async (req, res) => {
     }
     
     // Verificar permisos
-    if (req.user.rol !== 'profesional' || prescription.profesional_id !== req.user.id) {
+    if ((req.user.rol !== 'profesional' && req.user.rol !== 'medico') || prescription.profesional_id !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'No tienes permiso para modificar esta receta'
@@ -731,11 +731,13 @@ const updatePrescriptionItem = async (req, res) => {
     }
     
     // Verificar permisos
-    if (req.user.rol === 'profesional' && item.receta.profesional_id !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        message: 'No tienes permiso para modificar este item'
-      });
+    if (req.user.rol === 'profesional' || req.user.rol === 'medico') {
+      if (item.receta.profesional_id !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes permiso para modificar este item'
+        });
+      }
     }
     
     // Si es un paciente, solo puede marcar como tomado
@@ -802,7 +804,7 @@ const deletePrescriptionItem = async (req, res) => {
     }
     
     // Verificar permisos: solo profesionales pueden eliminar
-    if (req.user.rol !== 'profesional' || item.receta.profesional_id !== req.user.id) {
+    if ((req.user.rol !== 'profesional' && req.user.rol !== 'medico') || item.receta.profesional_id !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'No tienes permiso para eliminar este item'

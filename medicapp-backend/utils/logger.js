@@ -58,14 +58,16 @@ class Logger {
    * Escribe un mensaje en el archivo de log
    * @param {string} message - Mensaje a escribir
    * @param {string} level - Nivel del log (INFO, ERROR, WARN, DEBUG)
+   * @param {string} context - Contexto adicional (ej: nombre del controller)
    */
-  writeLog(message, level = 'INFO') {
+  writeLog(message, level = 'INFO', context = null) {
     try {
       const { timeStr } = this.getFormattedDateTime();
       const logFilePath = this.getLogFilePath();
       
-      // Formatear el mensaje
-      const logEntry = `[${timeStr}] [${level}] ${message}\n`;
+      // Formatear el mensaje con contexto opcional
+      const contextStr = context ? ` [${context}]` : '';
+      const logEntry = `[${timeStr}] [${level}]${contextStr} ${message}\n`;
 
       // Escribir el log al archivo
       fs.appendFileSync(logFilePath, logEntry);
@@ -77,67 +79,74 @@ class Logger {
   /**
    * Registra un mensaje informativo
    * @param {string} message - Mensaje informativo
+   * @param {string} context - Contexto opcional (ej: nombre del controller)
    */
-  info(message) {
-    this.writeLog(message, 'INFO');
+  info(message, context = null) {
+    this.writeLog(message, 'INFO', context);
   }
 
   /**
    * Registra un mensaje de error
    * @param {string} message - Mensaje de error
+   * @param {string} context - Contexto opcional (ej: nombre del controller)
    */
-  error(message) {
-    this.writeLog(message, 'ERROR');
+  error(message, context = null) {
+    this.writeLog(message, 'ERROR', context);
   }
 
   /**
    * Registra un mensaje de advertencia
    * @param {string} message - Mensaje de advertencia
+   * @param {string} context - Contexto opcional (ej: nombre del controller)
    */
-  warn(message) {
-    this.writeLog(message, 'WARN');
+  warn(message, context = null) {
+    this.writeLog(message, 'WARN', context);
   }
 
   /**
    * Registra un mensaje de debug
    * @param {string} message - Mensaje de debug
+   * @param {string} context - Contexto opcional (ej: nombre del controller)
    */
-  debug(message) {
-    this.writeLog(message, 'DEBUG');
+  debug(message, context = null) {
+    this.writeLog(message, 'DEBUG', context);
   }
 
   /**
    * Registra el inicio de una operación
    * @param {string} operation - Nombre de la operación
    * @param {Object} details - Detalles adicionales (opcional)
+   * @param {string} context - Contexto opcional (ej: nombre del controller)
    */
-  startOperation(operation, details = {}) {
+  startOperation(operation, details = {}, context = null) {
     const detailsStr = Object.keys(details).length > 0 ? ` - Detalles: ${JSON.stringify(details)}` : '';
-    this.info(`>>> INICIANDO: ${operation}${detailsStr}`);
+    this.info(`>>> INICIANDO: ${operation}${detailsStr}`, context);
   }
 
   /**
    * Registra el fin exitoso de una operación
    * @param {string} operation - Nombre de la operación
    * @param {Object} results - Resultados de la operación (opcional)
+   * @param {string} context - Contexto opcional (ej: nombre del controller)
    */
-  endOperation(operation, results = {}) {
+  endOperation(operation, results = {}, context = null) {
     const resultsStr = Object.keys(results).length > 0 ? ` - Resultados: ${JSON.stringify(results)}` : '';
-    this.info(`<<< FINALIZADO: ${operation}${resultsStr}`);
+    this.info(`<<< FINALIZADO: ${operation}${resultsStr}`, context);
   }
 
   /**
    * Registra un error en una operación
    * @param {string} operation - Nombre de la operación
    * @param {Error|string} error - Error ocurrido
+   * @param {string} context - Contexto opcional (ej: nombre del controller)
    */
-  operationError(operation, error) {
+  operationError(operation, error, context = null) {
     const errorMsg = error instanceof Error ? error.message : error;
     const stackTrace = error instanceof Error ? error.stack : '';
     
-    this.error(`XXX ERROR EN: ${operation} - ${errorMsg}`);
+    this.error(`XXX ERROR EN: ${operation} - ${errorMsg}`, context);
     if (stackTrace) {
-      this.error(`Stack trace: ${stackTrace}`);
+      this.error(`Stack trace: ${stackTrace}`, context);
     }
   }
 

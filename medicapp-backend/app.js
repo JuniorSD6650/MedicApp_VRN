@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { sequelize, createDatabaseIfNotExists } = require('./config/database');
+const logger = require('./utils/logger');
 
 const app = express();
 
@@ -71,9 +72,19 @@ app.get('/api/check-auth', (req, res) => {
 const initializeApp = async () => {
   try {
     console.log('Iniciando MedicApp Backend...');
+    logger.info('Iniciando MedicApp Backend...');
     
     // Crear directorio de uploads si no existe
-    require('./scripts/ensure-uploads-dir');
+    const fs = require('fs');
+    const path = require('path');
+    const uploadsDir = path.join(__dirname, 'uploads');
+    
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+      logger.info('Directorio uploads creado');
+    } else {
+      logger.info('Directorio uploads ya existe');
+    }
     
     // Crear base de datos si no existe
     await createDatabaseIfNotExists();
@@ -89,6 +100,7 @@ const initializeApp = async () => {
     // Sincronizar modelos
     await sequelize.sync({ force: false });
     console.log('Base de datos sincronizada');
+    logger.info('Base de datos sincronizada correctamente');
     
     // Iniciar servidor en todas las interfaces de red (0.0.0.0)
     const PORT = process.env.PORT || 4000;
@@ -97,6 +109,8 @@ const initializeApp = async () => {
     app.listen(PORT, HOST, () => {
       console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
       console.log('🚀 MedicApp Backend iniciado correctamente');
+      logger.info(`Servidor corriendo en http://${HOST}:${PORT}`);
+      logger.info('🚀 MedicApp Backend iniciado correctamente');
       
       // Mostrar las IPs del servidor para facilitar la conexión desde dispositivos móviles
       const networkInterfaces = require('os').networkInterfaces();
@@ -152,6 +166,8 @@ const initializeApp = async () => {
     });
   } catch (error) {
     console.error('Error inicializando aplicación:', error);
+    logger.error(`Error inicializando aplicación: ${error.message}`);
+    logger.error(`Stack trace: ${error.stack}`);
     process.exit(1);
   }
 };

@@ -5,23 +5,48 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../context/AuthContext';
+import CustomAlert from '../components/CustomAlert';
 
 const LoginScreen = ({ navigation }) => {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: []
+  });
+
+  const showAlert = (title, message, buttons = [{ text: 'OK' }]) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      buttons
+    });
+  };
+
+  const hideAlert = () => {
+    setAlertConfig({
+      visible: false,
+      title: '',
+      message: '',
+      buttons: []
+    });
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+      showAlert('Error', 'Por favor completa todos los campos');
       return;
     }
 
@@ -29,10 +54,10 @@ const LoginScreen = ({ navigation }) => {
     try {
       const result = await login(email.trim(), password);
       if (!result.success) {
-        Alert.alert('Error', result.error || 'Credenciales incorrectas');
+        showAlert('Error', result.error || 'Error de autenticación');
       }
     } catch (error) {
-      Alert.alert('Error', 'Ha ocurrido un error inesperado');
+      showAlert('Error', 'Ha ocurrido un error inesperado');
     } finally {
       setIsLoading(false);
     }
@@ -60,10 +85,10 @@ const LoginScreen = ({ navigation }) => {
     try {
       const result = await login(credentials.email, credentials.password);
       if (!result.success) {
-        Alert.alert('Error', result.error || 'Error en el acceso rápido');
+        showAlert('Error', result.error || 'Error en el acceso rápido');
       }
     } catch (error) {
-      Alert.alert('Error', 'Ha ocurrido un error inesperado');
+      showAlert('Error', 'Ha ocurrido un error inesperado');
     } finally {
       setIsLoading(false);
     }
@@ -100,14 +125,24 @@ const LoginScreen = ({ navigation }) => {
 
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Contraseña</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ingresa tu contraseña"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoComplete="password"
-            />
+            <View style={styles.passwordInputContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Ingresa tu contraseña"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoComplete="password"
+              />
+              <TouchableOpacity
+                style={styles.passwordToggle}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Text style={styles.passwordToggleIcon}>
+                  {showPassword ? '🙈' : '👁️'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity
@@ -155,7 +190,7 @@ const LoginScreen = ({ navigation }) => {
             onPress={() => handleQuickLogin('admin')}
             disabled={isLoading}
           >
-            <Text style={styles.quickButtonIcon}>👨‍💼</Text>
+            <Text style={styles.quickButtonIcon}>⚙️</Text>
             <Text style={styles.quickButtonText}>Ingresar como Administrador</Text>
           </TouchableOpacity>
         </View>
@@ -168,6 +203,15 @@ const LoginScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={hideAlert}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -175,7 +219,7 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#2E86AB',
+    backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
   },
   scrollContent: {
     flexGrow: 1,
@@ -234,6 +278,28 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     backgroundColor: '#F8F9FA',
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    backgroundColor: '#F8F9FA',
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    backgroundColor: 'transparent',
+  },
+  passwordToggle: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  passwordToggleIcon: {
+    fontSize: 18,
   },
   loginButton: {
     backgroundColor: '#2E86AB',
@@ -326,6 +392,7 @@ const styles = StyleSheet.create({
   registerText: {
     fontSize: 16,
     color: '#FFFFFF',
+    opacity: 0.8,
   },
   registerLink: {
     fontSize: 16,

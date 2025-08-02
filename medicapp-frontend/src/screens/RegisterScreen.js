@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +12,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../context/AuthContext';
+import CustomAlert from '../components/CustomAlert';
 
 const RegisterScreen = ({ navigation }) => {
   const [formData, setFormData] = useState({
@@ -26,7 +26,33 @@ const RegisterScreen = ({ navigation }) => {
     role: 'patient', // Por defecto, nuevos usuarios son pacientes
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: []
+  });
   const { register } = useAuth();
+
+  const showAlert = (title, message, buttons = [{ text: 'OK' }]) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      buttons
+    });
+  };
+
+  const hideAlert = () => {
+    setAlertConfig({
+      visible: false,
+      title: '',
+      message: '',
+      buttons: []
+    });
+  };
 
   const updateField = (field, value) => {
     setFormData(prev => ({
@@ -39,28 +65,28 @@ const RegisterScreen = ({ navigation }) => {
     const { name, lastName, email, password, confirmPassword, dni, phone } = formData;
 
     if (!name.trim() || !lastName.trim() || !email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Por favor completa todos los campos obligatorios');
+      showAlert('Error', 'Por favor completa todos los campos obligatorios');
       return false;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Las contraseñas no coinciden');
+      showAlert('Error', 'Las contraseñas no coinciden');
       return false;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      showAlert('Error', 'La contraseña debe tener al menos 6 caracteres');
       return false;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Por favor ingresa un email válido');
+      showAlert('Error', 'Por favor ingresa un email válido');
       return false;
     }
 
     if (dni && dni.length < 6) {
-      Alert.alert('Error', 'El DNI debe tener al menos 6 caracteres');
+      showAlert('Error', 'El DNI debe tener al menos 6 caracteres');
       return false;
     }
 
@@ -79,17 +105,16 @@ const RegisterScreen = ({ navigation }) => {
       const result = await register(registrationData);
 
       if (result.success) {
-        Alert.alert(
+        showAlert(
           'Registro exitoso',
-          'Tu cuenta ha sido creada correctamente',
-          [{ text: 'OK' }]
+          'Tu cuenta ha sido creada correctamente'
         );
         // La navegación se manejará automáticamente por el AuthContext
       } else {
-        Alert.alert('Error de registro', result.message || 'Error al crear la cuenta');
+        showAlert('Error de registro', result.message || 'Error al crear la cuenta');
       }
     } catch (error) {
-      Alert.alert('Error', 'Ocurrió un error inesperado');
+      showAlert('Error', 'Ocurrió un error inesperado');
     } finally {
       setIsLoading(false);
     }
@@ -189,30 +214,50 @@ const RegisterScreen = ({ navigation }) => {
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Contraseña *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Mínimo 6 caracteres"
-              value={formData.password}
-              onChangeText={(value) => updateField('password', value)}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoading}
-            />
+            <View style={styles.passwordInputContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Mínimo 6 caracteres"
+                value={formData.password}
+                onChangeText={(value) => updateField('password', value)}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isLoading}
+              />
+              <TouchableOpacity
+                style={styles.passwordToggle}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Text style={styles.passwordToggleIcon}>
+                  {showPassword ? '🙈' : '👁️'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Confirmar Contraseña *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Repite tu contraseña"
-              value={formData.confirmPassword}
-              onChangeText={(value) => updateField('confirmPassword', value)}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoading}
-            />
+            <View style={styles.passwordInputContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Repite tu contraseña"
+                value={formData.confirmPassword}
+                onChangeText={(value) => updateField('confirmPassword', value)}
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isLoading}
+              />
+              <TouchableOpacity
+                style={styles.passwordToggle}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                <Text style={styles.passwordToggleIcon}>
+                  {showConfirmPassword ? '🙈' : '👁️'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity 
@@ -251,6 +296,15 @@ const RegisterScreen = ({ navigation }) => {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={hideAlert}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -330,6 +384,28 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     color: '#495057',
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#DEE2E6',
+    borderRadius: 8,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#495057',
+  },
+  passwordToggle: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  passwordToggleIcon: {
+    fontSize: 16,
   },
   registerButton: {
     backgroundColor: '#2E86AB',

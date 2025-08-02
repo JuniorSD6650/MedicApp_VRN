@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { format } from 'date-fns';
@@ -15,7 +16,7 @@ import { patientService } from '../services/patientService';
 import { prescriptionService } from '../services/prescriptionService';
 
 const DoctorDashboard = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [patients, setPatients] = useState([]);
   const [recentPrescriptions, setRecentPrescriptions] = useState([]);
   const [todayAppointments, setTodayAppointments] = useState([]);
@@ -69,9 +70,41 @@ const DoctorDashboard = ({ navigation }) => {
     setRefreshing(false);
   };
 
+  const handleLogout = async () => {
+    Alert.alert(
+      'Cerrar Sesión',
+      '¿Estás seguro que deseas cerrar sesión?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Salir', onPress: logout, style: 'destructive' }
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.greeting}>Panel Médico</Text>
+            <Text style={styles.subGreeting}>Dr. {user?.name || 'Doctor'}</Text>
+          </View>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity 
+              style={styles.profileButton} 
+              onPress={() => navigation.navigate('Profile')}
+            >
+              <Text style={styles.profileButtonText}>👤</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Text style={styles.logoutText}>Salir</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
       
       <ScrollView
         style={styles.content}
@@ -244,6 +277,56 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
+  },
+  header: {
+    backgroundColor: '#2E86AB',
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  profileButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileButtonText: {
+    fontSize: 18,
+    color: '#FFFFFF',
+  },
+  logoutButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  logoutText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  greeting: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  subGreeting: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    opacity: 0.9,
+    marginTop: 4,
   },
   content: {
     flex: 1,

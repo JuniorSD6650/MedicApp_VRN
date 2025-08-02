@@ -9,6 +9,7 @@ import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 
 // Patient screens
 import PatientDashboard from '../screens/PatientDashboard';
@@ -92,6 +93,16 @@ const PatientNavigator = () => {
           ),
         }}
       />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileStackNavigator}
+        options={{
+          tabBarLabel: 'Perfil',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 20, color }}>👤</Text>
+          ),
+        }}
+      />
     </Tab.Navigator>
   );
 };
@@ -117,6 +128,18 @@ const PrescriptionsStackNavigator = () => {
           headerStyle: { backgroundColor: '#2E86AB' },
           headerTintColor: '#FFFFFF',
         }}
+      />
+    </Stack.Navigator>
+  );
+};
+
+// Profile Stack Navigator
+const ProfileStackNavigator = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen 
+        name="ProfileMain" 
+        component={ProfileScreen}
       />
     </Stack.Navigator>
   );
@@ -153,6 +176,17 @@ const DoctorNavigator = () => {
           drawerLabel: 'Pacientes',
           drawerIcon: ({ color }) => (
             <Text style={{ fontSize: 20, color }}>👥</Text>
+          ),
+        }}
+      />
+      <Drawer.Screen 
+        name="Profile" 
+        component={ProfileScreen}
+        options={{
+          title: 'Mi Perfil',
+          drawerLabel: 'Perfil',
+          drawerIcon: ({ color }) => (
+            <Text style={{ fontSize: 20, color }}>👤</Text>
           ),
         }}
       />
@@ -201,6 +235,17 @@ const AdminNavigator = () => {
           drawerLabel: 'Importar Datos',
           drawerIcon: ({ color }) => (
             <Text style={{ fontSize: 20, color }}>📁</Text>
+          ),
+        }}
+      />
+      <Drawer.Screen 
+        name="Profile" 
+        component={ProfileScreen}
+        options={{
+          title: 'Mi Perfil',
+          drawerLabel: 'Perfil',
+          drawerIcon: ({ color }) => (
+            <Text style={{ fontSize: 20, color }}>👤</Text>
           ),
         }}
       />

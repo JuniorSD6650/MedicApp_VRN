@@ -1,0 +1,40 @@
+{
+  "name": "medicapp-frontend",
+  "version": "1.0.0",
+  "description": "Frontend multiplataforma para MedicApp - Gestión inteligente de medicación",
+  "main": "index.js",
+  "keywords": ["react-native", "expo", "medical", "healthcare", "medication", "mobile-app"],
+  "author": "Your Name",
+  "license": "MIT",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "build:web": "expo build:web",
+    "build:android": "expo build:android",
+    "build:ios": "expo build:ios"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-navigation/bottom-tabs": "^7.4.4",
+    "@react-navigation/native": "^7.1.16",
+    "@react-navigation/stack": "^7.4.4",
+    "expo": "~53.0.20",
+    "expo-status-bar": "~2.2.3",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "react-native": "0.79.5",
+    "react-native-safe-area-context": "^5.5.2",
+    "react-native-screens": "^4.13.1",
+    "react-native-web": "^0.21.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "private": true
+}

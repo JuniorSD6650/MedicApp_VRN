@@ -60,7 +60,7 @@ const ProfileScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            navigation.navigate('Login');
+            // The logout from AuthContext should handle navigation
           }
         }
       ]

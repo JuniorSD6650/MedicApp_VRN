@@ -40,9 +40,9 @@ const AdminDashboard = ({ navigation }) => {
       const prescriptions = await prescriptionService.getAllPrescriptions();
       
       setStats({
-        totalPatients: patients.length,
+        totalPatients: Array.isArray(patients) ? patients.length : 0,
         totalDoctors: 15, // Dato simulado
-        totalPrescriptions: prescriptions.length,
+        totalPrescriptions: Array.isArray(prescriptions) ? prescriptions.length : 0,
         recentUploads: 3 // Dato simulado
       });
 
@@ -61,7 +61,8 @@ const AdminDashboard = ({ navigation }) => {
     const activities = [];
     
     // Actividades de pacientes
-    patients.slice(0, 3).forEach((patient, index) => {
+    const patientsArray = Array.isArray(patients) ? patients : [];
+    patientsArray.slice(0, 3).forEach((patient, index) => {
       activities.push({
         id: `patient_${index}`,
         type: 'patient',
@@ -73,7 +74,8 @@ const AdminDashboard = ({ navigation }) => {
     });
 
     // Actividades de recetas
-    prescriptions.slice(0, 2).forEach((prescription, index) => {
+    const prescriptionsArray = Array.isArray(prescriptions) ? prescriptions : [];
+    prescriptionsArray.slice(0, 2).forEach((prescription, index) => {
       activities.push({
         id: `prescription_${index}`,
         type: 'prescription',

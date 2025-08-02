@@ -2,7 +2,9 @@ const express = require('express');
 const {
   getAllPrescriptions,
   getSystemStats,
-  searchPatients
+  searchPatients,
+  listUsers,
+  getUserById
 } = require('../controllers/admin.controller');
 const { verifyToken, requireAdmin } = require('../middleware/auth');
 
@@ -19,6 +21,12 @@ router.get('/stats', getSystemStats);
 
 // Buscar pacientes
 router.get('/patients', searchPatients);
+
+// Listar usuarios con paginación y filtrado
+router.get('/users', listUsers);
+
+// Obtener un usuario específico por ID
+router.get('/users/:id', getUserById);
 
 // Ruta de prueba para verificar acceso de administrador
 router.get('/dashboard', (req, res) => {

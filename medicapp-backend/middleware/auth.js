@@ -32,4 +32,13 @@ const requirePatient = (req, res, next) => {
   }
 };
 
-module.exports = { verifyToken, requireAdmin, requirePatient };
+// Agregar middleware para médicos
+const requireMedico = (req, res, next) => {
+  if (req.user && req.user.rol === 'medico') {
+    next();
+  } else {
+    res.status(403).json({ message: 'Acceso denegado. Se requiere rol de médico' });
+  }
+};
+
+module.exports = { verifyToken, requireAdmin, requirePatient, requireMedico };

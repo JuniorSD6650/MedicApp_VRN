@@ -28,12 +28,33 @@ const DoctorDashboard = ({ route }) => {
     setPrescriptions([]);
 
     try {
+      console.log('Buscando paciente con DNI:', patientDni);
       const response = await api.get(`/api/prescriptions/history/${patientDni}`);
-      setPatient(response.data.patient);
-      setPrescriptions(response.data.prescriptions);
+      
+      if (response.data.success && response.data.patient) {
+        console.log('Paciente encontrado:', response.data.patient.nombre_completo);
+        setPatient(response.data.patient);
+        setPrescriptions(response.data.prescriptions || []);
+        
+        if (response.data.prescriptions?.length === 0) {
+          console.log('Paciente sin recetas médicas');
+        }
+      } else {
+        setError('No se pudo obtener información del paciente');
+      }
     } catch (error) {
       console.error('Error al buscar paciente:', error);
-      setError(error.response?.data?.message || 'No se encontraron datos del paciente');
+      const errorMessage = error.response?.data?.message || 
+                           'No se encontraron datos del paciente';
+      
+      // Mostrar mensaje más detallado
+      if (error.response?.status === 404) {
+        setError(`Paciente con DNI ${patientDni} no encontrado en el sistema`);
+      } else if (error.response?.status === 403) {
+        setError('No tienes permiso para ver el historial de este paciente');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }

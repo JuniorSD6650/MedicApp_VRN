@@ -1,6 +1,8 @@
 const { sequelize } = require('../config/database');
-const { Patient, Professional, Medication, Prescription, PrescriptionItem } = require('../models');
+const { Patient, Professional, Medication, Prescription, PrescriptionItem, User } = require('../models');
 const CSVMapper = require('../utils/csvMapper');
+const medicationIntakeService = require('./medicationIntake.service');
+const bcrypt = require('bcrypt');
 
 class CSVProcessor {
   constructor() {
@@ -13,6 +15,8 @@ class CSVProcessor {
       createdMedications: 0,
       createdPrescriptions: 0,
       createdPrescriptionItems: 0,
+      createdMedicationIntakes: 0,
+      createdUsers: 0,
       errors: []
     };
   }
@@ -66,7 +70,7 @@ class CSVProcessor {
       profesional_id: professional.id
     }, transaction);
 
-    await this.createPrescriptionItem({
+    const prescriptionItem = await this.createPrescriptionItem({
       receta_id: prescription.id,
       medicamento_id: medication.id,
       cantidad_solicitada: data.medicamento.cantidad_solicitada,
@@ -76,6 +80,23 @@ class CSVProcessor {
       dx_codigo: data.diagnostico.codigo,
       dx_descripcion: data.diagnostico.descripcion
     }, transaction);
+
+    // Generar tomas de medicamentos si hay fecha de despacho
+    if (data.receta.fecha_despacho) {
+      try {
+        const intakes = await medicationIntakeService.createIntakesForPrescriptionItem(
+          prescriptionItem, 
+          medication, 
+          data.receta.fecha_despacho, 
+          data.receta.hora_despacho,
+          { transaction }
+        );
+        this.stats.createdMedicationIntakes += intakes.length;
+      } catch (error) {
+        console.error(`Error creando tomas para fila ${rowIndex}:`, error.message);
+        // No lanzamos el error para permitir que continúe el proceso
+      }
+    }
   }
 
   async findOrCreatePatient(patientData, transaction) {
@@ -97,9 +118,44 @@ class CSVProcessor {
       }, { transaction });
 
       this.stats.createdPatients++;
+      
+      // Crear automáticamente un usuario para el paciente
+      await this.createUserForPatient(patient, transaction);
     }
 
     return patient;
+  }
+
+  // Nuevo método para crear usuarios para pacientes
+  async createUserForPatient(patient, transaction) {
+    try {
+      // Verificar si ya existe un usuario con este DNI como email
+      const email = `${patient.dni}@medicapp.com`;
+      let user = await User.findOne({
+        where: { email },
+        transaction
+      });
+
+      if (!user) {
+        // Crear contraseña para todos los usuarios (12345678)
+        const defaultPassword = "12345678";
+        
+        // Crear el usuario
+        user = await User.create({
+          nombre: patient.nombre_completo,
+          email: email,
+          password_hash: defaultPassword, // Se hasheará automáticamente por el hook del modelo
+          rol: 'paciente',
+          dni: patient.dni
+        }, { transaction });
+
+        console.log(`Usuario creado para el paciente ${patient.nombre_completo} (DNI: ${patient.dni})`);
+        this.stats.createdUsers++;
+      }
+    } catch (error) {
+      console.error(`Error al crear usuario para el paciente ${patient.dni}:`, error.message);
+      // No lanzamos el error para permitir que continúe el proceso
+    }
   }
 
   async findOrCreateProfessional(professionalData, transaction) {
@@ -167,7 +223,7 @@ class CSVProcessor {
   }
 
   async createPrescriptionItem(itemData, transaction) {
-    await PrescriptionItem.create({
+    const prescriptionItem = await PrescriptionItem.create({
       receta_id: itemData.receta_id,
       medicamento_id: itemData.medicamento_id,
       cantidad_solicitada: itemData.cantidad_solicitada,
@@ -180,6 +236,8 @@ class CSVProcessor {
     }, { transaction });
 
     this.stats.createdPrescriptionItems++;
+
+    return prescriptionItem;
   }
 
   calculateBirthDate(years, months, days) {

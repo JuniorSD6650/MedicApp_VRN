@@ -44,7 +44,10 @@ const handleCsvUpload = async (req, res) => {
           patients: stats.createdPatients,
           professionals: stats.createdProfessionals,
           medications: stats.createdMedications,
-          prescriptions: stats.createdPrescriptions
+          prescriptions: stats.createdPrescriptions,
+          prescriptionItems: stats.createdPrescriptionItems,
+          medicationIntakes: stats.createdMedicationIntakes,
+          users: stats.createdUsers
         }
       }
     };
@@ -85,4 +88,3 @@ const handleCsvUpload = async (req, res) => {
 module.exports = {
   handleCsvUpload
 };
-         

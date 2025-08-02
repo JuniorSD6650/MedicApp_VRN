@@ -63,9 +63,9 @@ const login = async (req, res) => {
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
-    console.log(`Login exitoso para: ${email}, rol: ${user.rol}`);
+    console.log(`Login exitoso para: ${email}, rol: ${user.rol}, dni: ${user.dni || 'no disponible'}`);
 
-    // Generar token
+    // Generar token incluyendo el DNI
     const token = jwt.sign(
       { id: user.id, email: user.email, rol: user.rol, dni: user.dni || '' },
       process.env.JWT_SECRET,
@@ -79,7 +79,8 @@ const login = async (req, res) => {
         id: user.id,
         nombre: user.nombre,
         email: user.email,
-        rol: user.rol
+        rol: user.rol,
+        dni: user.dni
       }
     });
   } catch (error) {

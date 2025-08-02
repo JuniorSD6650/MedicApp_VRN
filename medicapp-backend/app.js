@@ -14,11 +14,15 @@ app.use(cors({
 
 app.use(express.json());
 
-// Rutas
+// Importar rutas
 app.use('/api/auth', require('./routes/auth.routes'));
-app.use('/api/upload', require('./routes/upload.routes'));
 app.use('/api/prescriptions', require('./routes/prescription.routes'));
 app.use('/api/admin', require('./routes/admin.routes'));
+app.use('/api/intakes', require('./routes/medicationIntake.routes'));
+
+// Corregir importación y uso de rutas de carga
+const uploadRoutes = require('./routes/upload.routes');
+app.use('/api/upload', uploadRoutes);
 
 // Ruta de prueba mejorada con información sobre el servidor
 app.get('/api/health', (req, res) => {
@@ -67,6 +71,9 @@ app.get('/api/check-auth', (req, res) => {
 const initializeApp = async () => {
   try {
     console.log('Iniciando MedicApp Backend...');
+    
+    // Crear directorio de uploads si no existe
+    require('./scripts/ensure-uploads-dir');
     
     // Crear base de datos si no existe
     await createDatabaseIfNotExists();
@@ -135,11 +142,13 @@ const initializeApp = async () => {
 
       // Rutas de administración
       console.log('\n⚙️ Administración:');
-      console.log('  - POST /api/upload                         # Subir datos (administradores)');
       console.log('  - GET  /api/admin/users                    # Listar usuarios (administradores)');
-      
+      console.log('  - GET  /api/admin/users/:id                # Obtener usuario por ID (administradores)');
+      console.log('  - GET  /api/admin/patients                 # Buscar pacientes (administradores)');
+      console.log('  - GET  /api/admin/prescriptions            # Listar recetas (administradores)');
+      console.log('  - GET  /api/admin/stats                    # Obtener estadísticas (administradores)');
+
       console.log('\n📚 Documentación completa disponible en: /api-docs');
-      console.log('📱 Cliente frontend en: http://localhost:3000');
     });
   } catch (error) {
     console.error('Error inicializando aplicación:', error);
@@ -147,5 +156,7 @@ const initializeApp = async () => {
   }
 };
 
+// Inicializar la aplicación
+initializeApp();
 // Inicializar la aplicación
 initializeApp();

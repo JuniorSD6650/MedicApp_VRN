@@ -25,9 +25,14 @@ const User = sequelize.define('User', {
     allowNull: false
   },
   rol: {
-    type: DataTypes.ENUM('admin', 'medico', 'paciente', 'profesional'), // Añadimos 'profesional' como valor permitido
+    type: DataTypes.ENUM('admin', 'medico', 'paciente'), // Eliminado 'profesional'
     allowNull: false,
     defaultValue: 'paciente'
+  },
+  dni: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true
   }
 }, {
   tableName: 'users',

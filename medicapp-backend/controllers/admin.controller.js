@@ -189,9 +189,106 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
+// Listar usuarios con paginación y filtrado
+const listUsers = async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      search = '', 
+      role = '', 
+      sort = 'createdAt', 
+      order = 'DESC' 
+    } = req.query;
+    
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Construir condiciones de búsqueda
+    const whereClause = {};
+    
+    if (search) {
+      whereClause[Op.or] = [
+        { nombre: { [Op.like]: `%${search}%` } },
+        { email: { [Op.like]: `%${search}%` } },
+        { dni: { [Op.like]: `%${search}%` } }
+      ];
+    }
+    
+    if (role && ['admin', 'medico', 'paciente'].includes(role)) {
+      whereClause.rol = role;
+    }
+    
+    // Validar el campo de ordenación
+    const validSortFields = ['id', 'nombre', 'email', 'rol', 'createdAt', 'updatedAt'];
+    const sortField = validSortFields.includes(sort) ? sort : 'createdAt';
+    
+    // Validar dirección de ordenación
+    const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    
+    // Realizar la consulta
+    const { rows: users, count } = await User.findAndCountAll({
+      where: whereClause,
+      attributes: ['id', 'nombre', 'email', 'rol', 'dni', 'createdAt', 'updatedAt'],
+      limit: parseInt(limit),
+      offset: offset,
+      order: [[sortField, sortOrder]]
+    });
+    
+    res.json({
+      success: true,
+      users,
+      pagination: {
+        total: count,
+        totalPages: Math.ceil(count / parseInt(limit)),
+        currentPage: parseInt(page),
+        limit: parseInt(limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error al listar usuarios:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+};
+
+// Obtener un usuario específico por ID
+const getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const user = await User.findByPk(id, {
+      attributes: ['id', 'nombre', 'email', 'rol', 'dni', 'createdAt', 'updatedAt']
+    });
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+    
+    res.json({
+      success: true,
+      user
+    });
+  } catch (error) {
+    console.error('Error al obtener usuario:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getAllPrescriptions,
   getSystemStats,
   searchPatients,
-  getDashboardStats
+  getDashboardStats,
+  listUsers,
+  getUserById
 };

@@ -39,7 +39,7 @@ const authenticateToken = (req, res, next) => {
     id: 1,
     dni: '12345678',
     nombre: 'Usuario de Prueba',
-    rol: 'profesional' // Cambiado a profesional para pruebas
+    rol: 'medico' // Cambiado de 'profesional' a 'medico'
   };
   
   next();

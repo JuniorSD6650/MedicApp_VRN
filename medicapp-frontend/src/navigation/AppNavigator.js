@@ -1,15 +1,40 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createDrawerNavigator } from '@react-navigation/drawer';
 import { useAuth } from '../context/AuthContext';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 
 // Import screens
 import LoginScreen from '../screens/LoginScreen';
+import RegisterScreen from '../screens/RegisterScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+
+// Patient screens
 import PatientDashboard from '../screens/PatientDashboard';
+import PrescriptionsScreen from '../screens/PrescriptionsScreen';
+import PrescriptionDetailScreen from '../screens/PrescriptionDetailScreen';
+
+// Doctor screens
+import DoctorDashboard from '../screens/DoctorDashboard';
+import PatientSearchScreen from '../screens/PatientSearchScreen';
+import PatientDetailScreen from '../screens/PatientDetailScreen';
+
+// Admin screens
+import AdminDashboard from '../screens/AdminDashboard';
+import CsvUploadScreen from '../screens/CsvUploadScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
+const Drawer = createDrawerNavigator();
+
+// Loading component
+const LoadingScreen = () => (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color="#2E86AB" />
+    <Text style={styles.loadingText}>Cargando...</Text>
+  </View>
+);
 
 // Auth Stack Navigator
 const AuthNavigator = () => {
@@ -21,7 +46,8 @@ const AuthNavigator = () => {
       }}
     >
       <Stack.Screen name="Login" component={LoginScreen} />
-      {/* Add Register screen when created */}
+      <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </Stack.Navigator>
   );
 };
@@ -51,52 +77,134 @@ const PatientNavigator = () => {
         component={PatientDashboard}
         options={{
           tabBarLabel: 'Inicio',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 20, color }}>🏠</Text>
+          ),
         }}
       />
-      {/* Add more tabs as needed */}
+      <Tab.Screen 
+        name="Prescriptions" 
+        component={PrescriptionsStackNavigator}
+        options={{
+          tabBarLabel: 'Recetas',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 20, color }}>📋</Text>
+          ),
+        }}
+      />
     </Tab.Navigator>
   );
 };
 
-// Doctor Navigator (placeholder for future implementation)
+// Prescriptions Stack Navigator (para navegar entre lista y detalles)
+const PrescriptionsStackNavigator = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: true }}>
+      <Stack.Screen 
+        name="PrescriptionsList" 
+        component={PrescriptionsScreen}
+        options={{ 
+          title: 'Mis Recetas',
+          headerStyle: { backgroundColor: '#2E86AB' },
+          headerTintColor: '#FFFFFF',
+        }}
+      />
+      <Stack.Screen 
+        name="PrescriptionDetail" 
+        component={PrescriptionDetailScreen}
+        options={{ 
+          title: 'Detalle de Receta',
+          headerStyle: { backgroundColor: '#2E86AB' },
+          headerTintColor: '#FFFFFF',
+        }}
+      />
+    </Stack.Navigator>
+  );
+};
+
+// Doctor Drawer Navigator
 const DoctorNavigator = () => {
   return (
-    <Tab.Navigator
+    <Drawer.Navigator
+      initialRouteName="DoctorDashboard"
       screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#2E86AB',
-        tabBarInactiveTintColor: '#666666',
+        headerStyle: { backgroundColor: '#2E86AB' },
+        headerTintColor: '#FFFFFF',
+        drawerActiveTintColor: '#2E86AB',
+        drawerInactiveTintColor: '#666666',
       }}
     >
-      <Tab.Screen 
+      <Drawer.Screen 
         name="DoctorDashboard" 
-        component={PatientDashboard} // Placeholder
+        component={DoctorDashboard}
         options={{
-          tabBarLabel: 'Dashboard',
+          title: 'Panel Médico',
+          drawerLabel: 'Inicio',
+          drawerIcon: ({ color }) => (
+            <Text style={{ fontSize: 20, color }}>🏠</Text>
+          ),
         }}
       />
-    </Tab.Navigator>
+      <Drawer.Screen 
+        name="PatientSearch" 
+        component={PatientStackNavigator}
+        options={{
+          title: 'Buscar Pacientes',
+          drawerLabel: 'Pacientes',
+          drawerIcon: ({ color }) => (
+            <Text style={{ fontSize: 20, color }}>👥</Text>
+          ),
+        }}
+      />
+    </Drawer.Navigator>
   );
 };
 
-// Admin Navigator (placeholder for future implementation)
+// Patient Stack Navigator for doctors
+const PatientStackNavigator = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="PatientSearchList" component={PatientSearchScreen} />
+      <Stack.Screen name="PatientDetail" component={PatientDetailScreen} />
+    </Stack.Navigator>
+  );
+};
+
+// Admin Drawer Navigator
 const AdminNavigator = () => {
   return (
-    <Tab.Navigator
+    <Drawer.Navigator
+      initialRouteName="AdminDashboard"
       screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#2E86AB',
-        tabBarInactiveTintColor: '#666666',
+        headerStyle: { backgroundColor: '#2E86AB' },
+        headerTintColor: '#FFFFFF',
+        drawerActiveTintColor: '#2E86AB',
+        drawerInactiveTintColor: '#666666',
       }}
     >
-      <Tab.Screen 
+      <Drawer.Screen 
         name="AdminDashboard" 
-        component={PatientDashboard} // Placeholder
+        component={AdminDashboard}
         options={{
-          tabBarLabel: 'Admin',
+          title: 'Panel Administrativo',
+          drawerLabel: 'Inicio',
+          drawerIcon: ({ color }) => (
+            <Text style={{ fontSize: 20, color }}>🏠</Text>
+          ),
         }}
       />
-    </Tab.Navigator>
+      <Drawer.Screen 
+        name="CsvUpload" 
+        component={CsvUploadScreen}
+        options={{
+          title: 'Cargar CSV',
+          drawerLabel: 'Importar Datos',
+          drawerIcon: ({ color }) => (
+            <Text style={{ fontSize: 20, color }}>📁</Text>
+          ),
+        }}
+      />
+    </Drawer.Navigator>
   );
 };
 
@@ -105,44 +213,39 @@ const AppNavigator = () => {
   const { isAuthenticated, user, loading } = useAuth();
 
   if (loading) {
-    return null; // or a loading screen
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
-    return (
-      <NavigationContainer>
-        <AuthNavigator />
-      </NavigationContainer>
-    );
+    return <AuthNavigator />;
   }
 
-  // Determine navigator based on user role
-  const getUserNavigator = () => {
-    if (!user?.role) {
-      return <PatientNavigator />; // Default to patient
-    }
-
-    switch (user.role.toLowerCase()) {
-      case 'patient':
-      case 'paciente':
-        return <PatientNavigator />;
-      case 'professional':
-      case 'doctor':
-      case 'médico':
-        return <DoctorNavigator />;
-      case 'admin':
-      case 'administrator':
-        return <AdminNavigator />;
-      default:
-        return <PatientNavigator />; // Default fallback
-    }
-  };
-
-  return (
-    <NavigationContainer>
-      {getUserNavigator()}
-    </NavigationContainer>
-  );
+  // Navegación condicional según el rol del usuario
+  switch (user?.role) {
+    case 'patient':
+      return <PatientNavigator />;
+    case 'doctor':
+      return <DoctorNavigator />;
+    case 'admin':
+      return <AdminNavigator />;
+    default:
+      return <AuthNavigator />;
+  }
 };
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6C757D',
+    fontWeight: '500',
+  },
+});
 
 export default AppNavigator;

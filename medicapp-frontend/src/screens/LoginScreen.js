@@ -6,87 +6,107 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../context/AuthContext';
-import { COLORS, SIZES, FONTS, SHADOWS } from '../constants/theme';
-import Header from '../components/Header';
 
 const LoginScreen = ({ navigation }) => {
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Por favor ingresa email y contraseña');
+      Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
     setIsLoading(true);
-    
     try {
-      const result = await login({ email: email.trim(), password });
-      
+      const result = await login(email.trim(), password);
       if (!result.success) {
-        Alert.alert('Error de autenticación', result.error);
+        Alert.alert('Error', result.error || 'Credenciales incorrectas');
       }
-      // Si es exitoso, la navegación se manejará automáticamente por el AuthContext
     } catch (error) {
-      Alert.alert('Error', 'Ocurrió un error inesperado');
+      Alert.alert('Error', 'Ha ocurrido un error inesperado');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const navigateToRegister = () => {
-    navigation.navigate('Register');
+  const handleQuickLogin = async (role) => {
+    setIsLoading(true);
+    let credentials;
+    
+    switch (role) {
+      case 'patient':
+        credentials = { email: 'paciente@medicapp.com', password: 'paciente123' };
+        break;
+      case 'doctor':
+        credentials = { email: 'doctor@medicapp.com', password: 'doctor123' };
+        break;
+      case 'admin':
+        credentials = { email: 'admin@medicapp.com', password: 'admin123' };
+        break;
+    }
+
+    setEmail(credentials.email);
+    setPassword(credentials.password);
+    
+    try {
+      const result = await login(credentials.email, credentials.password);
+      if (!result.success) {
+        Alert.alert('Error', result.error || 'Error en el acceso rápido');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Ha ocurrido un error inesperado');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <KeyboardAvoidingView 
-      style={styles.container}
+      style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar style="dark" />
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Header title="Iniciar Sesión" showLogo={true} />
+      <StatusBar style="light" />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.logo}>💊</Text>
+          <Text style={styles.title}>MedicApp</Text>
+          <Text style={styles.subtitle}>Gestión inteligente de medicación</Text>
+        </View>
 
-        <View style={styles.formContainer}>
+        {/* Login Form */}
+        <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.inputLabel}>Email</Text>
             <TextInput
               style={styles.input}
+              placeholder="Ingresa tu email"
               value={email}
               onChangeText={setEmail}
-              placeholder="ingresa tu email"
-              placeholderTextColor={COLORS.textSecondary}
               keyboardType="email-address"
               autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoading}
+              autoComplete="email"
             />
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Contraseña</Text>
+            <Text style={styles.inputLabel}>Contraseña</Text>
             <TextInput
               style={styles.input}
+              placeholder="Ingresa tu contraseña"
               value={password}
               onChangeText={setPassword}
-              placeholder="ingresa tu contraseña"
-              placeholderTextColor={COLORS.textSecondary}
               secureTextEntry
-              autoCapitalize="none"
-              editable={!isLoading}
+              autoComplete="password"
             />
           </View>
 
@@ -95,22 +115,57 @@ const LoginScreen = ({ navigation }) => {
             onPress={handleLogin}
             disabled={isLoading}
           >
-            {isLoading ? (
-              <ActivityIndicator color={COLORS.surface} />
-            ) : (
-              <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
-            )}
+            <Text style={styles.loginButtonText}>
+              {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+            </Text>
           </TouchableOpacity>
 
-          <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>¿No tienes cuenta? </Text>
-            <TouchableOpacity 
-              onPress={navigateToRegister}
-              disabled={isLoading}
-            >
-              <Text style={styles.registerLink}>Regístrate aquí</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.forgotPassword}
+            onPress={() => navigation.navigate('ForgotPassword')}
+          >
+            <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Quick Access */}
+        <View style={styles.quickAccess}>
+          <Text style={styles.quickAccessTitle}>Acceso rápido para demo</Text>
+          
+          <TouchableOpacity
+            style={[styles.quickButton, styles.patientButton]}
+            onPress={() => handleQuickLogin('patient')}
+            disabled={isLoading}
+          >
+            <Text style={styles.quickButtonIcon}>👤</Text>
+            <Text style={styles.quickButtonText}>Ingresar como Paciente</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.quickButton, styles.doctorButton]}
+            onPress={() => handleQuickLogin('doctor')}
+            disabled={isLoading}
+          >
+            <Text style={styles.quickButtonIcon}>👨‍⚕️</Text>
+            <Text style={styles.quickButtonText}>Ingresar como Médico</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.quickButton, styles.adminButton]}
+            onPress={() => handleQuickLogin('admin')}
+            disabled={isLoading}
+          >
+            <Text style={styles.quickButtonIcon}>👨‍💼</Text>
+            <Text style={styles.quickButtonText}>Ingresar como Administrador</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Register Link */}
+        <View style={styles.registerContainer}>
+          <Text style={styles.registerText}>¿No tienes cuenta? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <Text style={styles.registerLink}>Regístrate aquí</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -120,70 +175,163 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#2E86AB',
   },
-  scrollContainer: {
+  scrollContent: {
     flexGrow: 1,
-  },
-  formContainer: {
-    flex: 1,
-    padding: SIZES.padding,
     justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  logo: {
+    fontSize: 60,
+    marginBottom: 10,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    opacity: 0.8,
+    textAlign: 'center',
+  },
+  form: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 30,
+    marginBottom: 30,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
   inputContainer: {
-    marginBottom: SIZES.margin,
+    marginBottom: 20,
   },
-  label: {
-    fontSize: SIZES.subhead,
-    fontFamily: FONTS.medium,
-    color: COLORS.text,
-    marginBottom: SIZES.base / 2,
-    fontWeight: '500',
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 8,
   },
   input: {
-    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: SIZES.radius,
-    padding: SIZES.padding,
-    fontSize: SIZES.body,
-    fontFamily: FONTS.regular,
-    color: COLORS.text,
-    ...SHADOWS.light,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    backgroundColor: '#F8F9FA',
   },
   loginButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: SIZES.radius,
-    padding: SIZES.padding,
+    backgroundColor: '#2E86AB',
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: 'center',
-    marginTop: SIZES.margin,
-    ...SHADOWS.medium,
+    marginTop: 10,
+    shadowColor: '#2E86AB',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   disabledButton: {
-    backgroundColor: COLORS.textSecondary,
+    backgroundColor: '#A0A0A0',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   loginButtonText: {
-    color: COLORS.surface,
-    fontSize: SIZES.callout,
-    fontFamily: FONTS.semiBold,
+    color: '#FFFFFF',
+    fontSize: 18,
     fontWeight: '600',
+  },
+  forgotPassword: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  forgotPasswordText: {
+    color: '#2E86AB',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  quickAccess: {
+    marginBottom: 30,
+  },
+  quickAccessTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  quickButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  patientButton: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#28A745',
+  },
+  doctorButton: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#007BFF',
+  },
+  adminButton: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFC107',
+  },
+  quickButtonIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  quickButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333333',
+    flex: 1,
   },
   registerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: SIZES.margin * 2,
   },
   registerText: {
-    fontSize: SIZES.subhead,
-    fontFamily: FONTS.regular,
-    color: COLORS.textSecondary,
+    fontSize: 16,
+    color: '#FFFFFF',
   },
   registerLink: {
-    fontSize: SIZES.subhead,
-    fontFamily: FONTS.semiBold,
-    color: COLORS.primary,
+    fontSize: 16,
+    color: '#FFFFFF',
     fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });
 

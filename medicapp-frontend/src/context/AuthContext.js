@@ -39,12 +39,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = async (credentials) => {
+  const login = async (emailOrCredentials, password) => {
     try {
       setLoading(true);
+      
+      // Permitir tanto el formato antiguo (email, password) como el nuevo (credentials)
+      let credentials;
+      if (typeof emailOrCredentials === 'string') {
+        credentials = { email: emailOrCredentials, password };
+      } else {
+        credentials = emailOrCredentials;
+      }
+      
       const response = await apiService.login(credentials);
       
-      if (response.token && response.user) {
+      if (response.success && response.token && response.user) {
         await AsyncStorage.setItem('authToken', response.token);
         await AsyncStorage.setItem('userData', JSON.stringify(response.user));
         
@@ -54,7 +63,7 @@ export const AuthProvider = ({ children }) => {
         
         return { success: true, user: response.user };
       } else {
-        throw new Error('Invalid response from server');
+        throw new Error(response.message || 'Invalid response from server');
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -72,7 +81,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       const response = await apiService.register(userData);
       
-      if (response.token && response.user) {
+      if (response.success && response.token && response.user) {
         await AsyncStorage.setItem('authToken', response.token);
         await AsyncStorage.setItem('userData', JSON.stringify(response.user));
         
@@ -82,7 +91,7 @@ export const AuthProvider = ({ children }) => {
         
         return { success: true, user: response.user };
       } else {
-        throw new Error('Invalid response from server');
+        throw new Error(response.message || 'Invalid response from server');
       }
     } catch (error) {
       console.error('Register error:', error);

@@ -1,47 +1,48 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
+
+import { AuthProvider } from './src/context/AuthContext';
+import AppNavigator from './src/navigation/AppNavigator';
+import SplashScreenComponent from './src/screens/SplashScreen';
+
+// Mantener la pantalla de splash visible
+SplashScreen.preventAutoHideAsync();
 
 export default function App() {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Simular carga inicial
+    const initializeApp = async () => {
+      try {
+        // Aquí puedes agregar inicializaciones como cargar fonts, verificar auth, etc.
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } catch (error) {
+        console.warn('Error durante la inicialización:', error);
+      } finally {
+        setIsLoading(false);
+        await SplashScreen.hideAsync();
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  if (isLoading) {
+    return <SplashScreenComponent />;
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>MedicApp Frontend</Text>
-      <Text style={styles.subtitle}>
-        Aplicación React Native multiplataforma para gestión de medicamentos
-      </Text>
-      <Text style={styles.platform}>
-        Plataforma: Web, iOS, Android
-      </Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <NavigationContainer>
+          <AppNavigator />
+          <StatusBar style="auto" />
+        </NavigationContainer>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2E86AB',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#333333',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
-  },
-  platform: {
-    fontSize: 14,
-    color: '#666666',
-    textAlign: 'center',
-  },
-});

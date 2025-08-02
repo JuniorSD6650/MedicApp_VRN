@@ -1,4 +1,234 @@
-# MedicApp Frontend
+# MedicApp - Aplicación Médica Móvil
+
+Una aplicación móvil completa desarrollada en React Native con Expo para la gestión médica con múltiples roles de usuario.
+
+## 🚀 Características principales
+
+### Roles de Usuario
+- **Paciente**: Gestión de medicamentos y recetas
+- **Médico**: Búsqueda de pacientes y gestión de recetas
+- **Administrador**: Importación de datos CSV y gestión del sistema
+
+### Funcionalidades por Rol
+
+#### 👤 Paciente
+- Dashboard con seguimiento de medicamentos diarios
+- Lista de recetas con filtros (activas/completadas)
+- Detalle completo de recetas con medicamentos
+- Navegación por fechas para seguimiento
+
+#### 👨‍⚕️ Médico
+- Dashboard con resumen de pacientes y citas
+- Búsqueda de pacientes por nombre o DNI
+- Vista detallada de pacientes con historial médico
+- Gestión de recetas y medicamentos
+
+#### 👨‍💼 Administrador
+- Dashboard con estadísticas del sistema
+- Importación de datos desde archivos CSV
+- Validación y vista previa de datos
+- Gestión del sistema y usuarios
+
+## 🛠 Tecnologías utilizadas
+
+- **React Native**: Framework principal
+- **Expo**: Plataforma de desarrollo
+- **React Navigation**: Navegación (Stack, Tabs, Drawer)
+- **AsyncStorage**: Almacenamiento local
+- **date-fns**: Manejo de fechas con localización en español
+
+## 📱 Plataformas soportadas
+
+- ✅ Android
+- ✅ iOS
+- ✅ Web
+
+## 🏗 Estructura del proyecto
+
+```
+src/
+├── components/          # Componentes reutilizables
+│   ├── Header.js
+│   └── PrescriptionItem.js
+├── constants/           # Constantes y temas
+│   └── theme.js
+├── context/            # Context API para estado global
+│   └── AuthContext.js
+├── navigation/         # Configuración de navegación
+│   └── AppNavigator.js
+├── screens/           # Pantallas de la aplicación
+│   ├── LoginScreen.js
+│   ├── RegisterScreen.js
+│   ├── ForgotPasswordScreen.js
+│   ├── PatientDashboard.js
+│   ├── PrescriptionsScreen.js
+│   ├── PrescriptionDetailScreen.js
+│   ├── DoctorDashboard.js
+│   ├── PatientSearchScreen.js
+│   ├── PatientDetailScreen.js
+│   ├── AdminDashboard.js
+│   └── CsvUploadScreen.js
+├── services/          # Servicios de datos (mock APIs)
+│   ├── api.js
+│   ├── authService.js
+│   ├── medicationService.js
+│   ├── medicationIntakeService.js
+│   ├── prescriptionService.js
+│   └── patientService.js
+└── utils/             # Utilidades
+```
+
+## 🚀 Instalación y configuración
+
+### Prerrequisitos
+- Node.js (v14 o superior)
+- Expo CLI
+- Android Studio (para Android) o Xcode (para iOS)
+
+### Pasos de instalación
+
+1. **Clonar el repositorio**
+   ```bash
+   git clone [URL_DEL_REPOSITORIO]
+   cd medicapp-frontend
+   ```
+
+2. **Instalar dependencias**
+   ```bash
+   npm install
+   ```
+
+3. **Iniciar el proyecto**
+   ```bash
+   npm start
+   # o
+   expo start
+   ```
+
+4. **Ejecutar en dispositivo/emulador**
+   - Para Android: `npm run android`
+   - Para iOS: `npm run ios`
+   - Para Web: `npm run web`
+
+## 📋 Dependencias principales
+
+```json
+{
+  "@react-navigation/native": "^6.1.18",
+  "@react-navigation/stack": "^6.4.1",
+  "@react-navigation/bottom-tabs": "^6.6.1",
+  "@react-navigation/drawer": "^6.7.2",
+  "@react-native-async-storage/async-storage": "1.23.1",
+  "date-fns": "^3.6.0",
+  "expo": "~53.0.20",
+  "react": "18.2.0",
+  "react-native": "0.76.5"
+}
+```
+
+## 🔐 Autenticación
+
+El sistema incluye autenticación completa con:
+- Inicio de sesión
+- Registro de usuarios
+- Recuperación de contraseña
+- Persistencia de sesión
+- Roles de usuario
+
+### Usuarios de prueba
+
+```javascript
+// Paciente
+Email: paciente@test.com
+Password: 123456
+
+// Médico
+Email: doctor@test.com
+Password: 123456
+
+// Administrador
+Email: admin@test.com
+Password: 123456
+```
+
+## 🗄 Gestión de datos
+
+El proyecto utiliza servicios mock que simulan APIs reales:
+
+- **authService**: Autenticación y gestión de usuarios
+- **patientService**: Gestión de pacientes
+- **prescriptionService**: Gestión de recetas médicas
+- **medicationService**: Catálogo de medicamentos
+- **medicationIntakeService**: Seguimiento de tomas
+
+## 📊 Funcionalidades destacadas
+
+### Sistema de navegación adaptativo
+- **Pacientes**: Navegación por pestañas (Tabs)
+- **Médicos**: Navegación por menú lateral (Drawer)
+- **Administradores**: Navegación por menú lateral (Drawer)
+
+### Importación de datos CSV
+- Selección de archivos CSV
+- Vista previa del contenido
+- Validación de datos
+- Procesamiento e importación
+
+### Seguimiento de medicamentos
+- Dashboard con medicamentos del día
+- Navegación por fechas
+- Estados de toma (pendiente/tomado)
+
+## 🎨 Diseño y UI
+
+- Diseño moderno y responsivo
+- Paleta de colores consistente
+- Iconos emoji para mejor UX
+- Soporte para modo claro
+- Adaptado para diferentes tamaños de pantalla
+
+## 🚧 Desarrollo futuro
+
+- [ ] Integración con APIs reales
+- [ ] Notificaciones push
+- [ ] Modo offline
+- [ ] Sincronización de datos
+- [ ] Reportes avanzados
+- [ ] Videollamadas médicas
+
+## 📝 Notas de desarrollo
+
+- Los datos actualmente son simulados (mock)
+- El proyecto está configurado para fácil migración a APIs reales
+- Incluye validaciones de formularios
+- Manejo de errores implementado
+- Localización en español
+
+## 🤝 Contribución
+
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
+
+## 👨‍💻 Autor
+
+Desarrollado con ❤️ para la gestión médica moderna.
+
+---
+
+## 🔧 Scripts disponibles
+
+- `npm start`: Inicia el servidor de desarrollo de Expo
+- `npm run android`: Ejecuta en emulador/dispositivo Android
+- `npm run ios`: Ejecuta en simulador/dispositivo iOS
+- `npm run web`: Ejecuta en navegador web
+- `npm run eject`: Eyecta de Expo (no recomendado)
 
 Frontend de la aplicación MedicApp desarrollado con React Native y Expo, compatible con Web, Android e iOS.
 

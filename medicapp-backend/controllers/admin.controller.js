@@ -1,8 +1,10 @@
 const { Prescription, PrescriptionItem, Patient, Professional, Medication, User } = require('../models');
 const { Op } = require('sequelize');
+const logger = require('../utils/logger');
 
 // Obtener todas las recetas (solo admin)
 const getAllPrescriptions = async (req, res) => {
+  logger.startOperation('Obtención de todas las recetas', req.query, 'AdminController');
   try {
     const { page = 1, limit = 10, search = '' } = req.query;
     const offset = (page - 1) * limit;
@@ -32,6 +34,14 @@ const getAllPrescriptions = async (req, res) => {
       order: [['fecha', 'DESC']]
     });
 
+    logger.info(`Recuperadas ${prescriptions.length} recetas de un total de ${count}`, 'AdminController');
+    logger.endOperation('Obtención de todas las recetas', {
+      total: count,
+      returned: prescriptions.length,
+      page: parseInt(page),
+      pages: Math.ceil(count / limit)
+    }, 'AdminController');
+
     res.json({
       prescriptions: prescriptions.map(p => ({
         id: p.id,
@@ -54,6 +64,7 @@ const getAllPrescriptions = async (req, res) => {
       }
     });
   } catch (error) {
+    logger.operationError('Obtención de todas las recetas', error, 'AdminController');
     console.error('Error obteniendo recetas:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -61,6 +72,7 @@ const getAllPrescriptions = async (req, res) => {
 
 // Obtener estadísticas generales del sistema
 const getSystemStats = async (req, res) => {
+  logger.startOperation('Obtención de estadísticas del sistema', {}, 'AdminController');
   try {
     const totalUsers = await User.count();
     const totalPatients = await Patient.count();
@@ -86,23 +98,29 @@ const getSystemStats = async (req, res) => {
       order: [['month', 'ASC']]
     });
 
+    const stats = {
+      total_usuarios: totalUsers,
+      total_pacientes: totalPatients,
+      total_profesionales: totalProfessionals,
+      total_medicamentos: totalMedications,
+      total_recetas: totalPrescriptions,
+      total_items_medicamentos: totalItems,
+      medicamentos_tomados: takenItems,
+      porcentaje_cumplimiento_global: totalItems > 0 ? Math.round((takenItems / totalItems) * 100) : 0
+    };
+
+    logger.summary('Estadísticas del sistema', stats);
+    logger.endOperation('Obtención de estadísticas del sistema', stats, 'AdminController');
+
     res.json({
-      general_stats: {
-        total_usuarios: totalUsers,
-        total_pacientes: totalPatients,
-        total_profesionales: totalProfessionals,
-        total_medicamentos: totalMedications,
-        total_recetas: totalPrescriptions,
-        total_items_medicamentos: totalItems,
-        medicamentos_tomados: takenItems,
-        porcentaje_cumplimiento_global: totalItems > 0 ? Math.round((takenItems / totalItems) * 100) : 0
-      },
+      general_stats: stats,
       monthly_prescriptions: monthlyStats.map(stat => ({
         month: stat.getDataValue('month'),
         count: stat.getDataValue('count')
       }))
     });
   } catch (error) {
+    logger.operationError('Obtención de estadísticas del sistema', error, 'AdminController');
     console.error('Error obteniendo estadísticas:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -110,6 +128,7 @@ const getSystemStats = async (req, res) => {
 
 // Buscar pacientes
 const searchPatients = async (req, res) => {
+  logger.startOperation('Búsqueda de pacientes', req.query, 'AdminController');
   try {
     const { search = '', page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
@@ -128,6 +147,13 @@ const searchPatients = async (req, res) => {
       order: [['nombre_completo', 'ASC']]
     });
 
+    logger.info(`Búsqueda de pacientes con término "${search}" retornó ${patients.length} resultados`, 'AdminController');
+    logger.endOperation('Búsqueda de pacientes', {
+      total: count,
+      returned: patients.length,
+      search_term: search
+    }, 'AdminController');
+
     res.json({
       patients,
       pagination: {
@@ -138,6 +164,7 @@ const searchPatients = async (req, res) => {
       }
     });
   } catch (error) {
+    logger.operationError('Búsqueda de pacientes', error, 'AdminController');
     console.error('Error buscando pacientes:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -145,6 +172,7 @@ const searchPatients = async (req, res) => {
 
 // Obtener estadísticas del dashboard (admin)
 const getDashboardStats = async (req, res) => {
+  logger.startOperation('Obtención de estadísticas del dashboard', {}, 'AdminController');
   try {
     // Obtener estadísticas
     const stats = {
@@ -172,6 +200,10 @@ const getDashboardStats = async (req, res) => {
         { model: Professional, as: 'profesional' }
       ]
     });
+
+    logger.summary('Estadísticas del dashboard', stats);
+    logger.info(`Obtenidos ${recentUsers.length} usuarios recientes y ${recentPrescriptions.length} recetas recientes`, 'AdminController');
+    logger.endOperation('Obtención de estadísticas del dashboard', stats, 'AdminController');
     
     res.json({
       success: true,
@@ -180,6 +212,7 @@ const getDashboardStats = async (req, res) => {
       recentPrescriptions
     });
   } catch (error) {
+    logger.operationError('Obtención de estadísticas del dashboard', error, 'AdminController');
     console.error('Error obteniendo estadísticas:', error);
     res.status(500).json({ 
       success: false, 
@@ -191,6 +224,7 @@ const getDashboardStats = async (req, res) => {
 
 // Listar usuarios con paginación y filtrado
 const listUsers = async (req, res) => {
+  logger.startOperation('Listado de usuarios', req.query, 'AdminController');
   try {
     const { 
       page = 1, 
@@ -225,6 +259,8 @@ const listUsers = async (req, res) => {
     // Validar dirección de ordenación
     const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     
+    logger.debug(`Parámetros de búsqueda: ${JSON.stringify({search, role, sort: sortField, order: sortOrder})}`, 'AdminController');
+    
     // Realizar la consulta
     const { rows: users, count } = await User.findAndCountAll({
       where: whereClause,
@@ -233,6 +269,14 @@ const listUsers = async (req, res) => {
       offset: offset,
       order: [[sortField, sortOrder]]
     });
+    
+    logger.info(`Listado de usuarios: ${users.length} recuperados de un total de ${count}`, 'AdminController');
+    logger.endOperation('Listado de usuarios', {
+      total: count,
+      returned: users.length,
+      page: parseInt(page),
+      pages: Math.ceil(count / parseInt(limit))
+    }, 'AdminController');
     
     res.json({
       success: true,
@@ -245,6 +289,7 @@ const listUsers = async (req, res) => {
       }
     });
   } catch (error) {
+    logger.operationError('Listado de usuarios', error, 'AdminController');
     console.error('Error al listar usuarios:', error);
     res.status(500).json({ 
       success: false, 
@@ -256,25 +301,30 @@ const listUsers = async (req, res) => {
 
 // Obtener un usuario específico por ID
 const getUserById = async (req, res) => {
+  const userId = req.params.id;
+  logger.startOperation('Obtención de usuario por ID', { userId }, 'AdminController');
   try {
-    const { id } = req.params;
-    
-    const user = await User.findByPk(id, {
+    const user = await User.findByPk(userId, {
       attributes: ['id', 'nombre', 'email', 'rol', 'dni', 'createdAt', 'updatedAt']
     });
     
     if (!user) {
+      logger.warn(`Usuario con ID ${userId} no encontrado`, 'AdminController');
       return res.status(404).json({
         success: false,
         message: 'Usuario no encontrado'
       });
     }
     
+    logger.info(`Usuario recuperado: ID=${user.id}, Email=${user.email}, Rol=${user.rol}`, 'AdminController');
+    logger.endOperation('Obtención de usuario por ID', { userId: user.id, rol: user.rol }, 'AdminController');
+    
     res.json({
       success: true,
       user
     });
   } catch (error) {
+    logger.operationError('Obtención de usuario por ID', error, 'AdminController');
     console.error('Error al obtener usuario:', error);
     res.status(500).json({ 
       success: false, 

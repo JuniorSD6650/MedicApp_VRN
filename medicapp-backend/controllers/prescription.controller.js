@@ -1,8 +1,10 @@
 const { Patient, Professional, Prescription, PrescriptionItem, Medication } = require('../models');
 const { Op } = require('sequelize');
+const logger = require('../utils/logger');
 
 // Obtener recetas y medicamentos del paciente autenticado
 const getMyPrescriptions = async (req, res) => {
+  logger.startOperation('Obtención de recetas del paciente', { userId: req.user.id, dni: req.user.dni }, 'PrescriptionController');
   try {
     // Buscar paciente asociado al usuario
     const patient = await Patient.findOne({
@@ -10,11 +12,14 @@ const getMyPrescriptions = async (req, res) => {
     });
 
     if (!patient) {
+      logger.warn(`No se encontró paciente asociado al usuario ID=${req.user.id}, DNI=${req.user.dni}`, 'PrescriptionController');
       return res.status(404).json({ 
         success: false, 
         message: 'No se encontró información de paciente asociada a este usuario' 
       });
     }
+
+    logger.info(`Paciente encontrado: ID=${patient.id}, Nombre=${patient.nombre_completo}`, 'PrescriptionController');
 
     // Buscar recetas del paciente con items y medicamentos
     const prescriptions = await Prescription.findAll({
@@ -39,6 +44,8 @@ const getMyPrescriptions = async (req, res) => {
       order: [['fecha', 'DESC']]
     });
 
+    logger.info(`Recuperadas ${prescriptions.length} recetas para el paciente ID=${patient.id}`, 'PrescriptionController');
+
     // Calcular próximas tomas para cada medicamento
     const prescriptionsWithSchedule = prescriptions.map(prescription => {
       const plainPrescription = prescription.get({ plain: true });
@@ -53,6 +60,8 @@ const getMyPrescriptions = async (req, res) => {
         
         // Calcular intervalo entre tomas (en horas)
         const intervaloHoras = Math.floor(24 / tomasPorDia);
+        
+        logger.debug(`Calculando horarios para medicamento ID=${item.medicamento_id}: duración=${duracionDias} días, tomas por día=${tomasPorDia}`, 'PrescriptionController');
         
         // Calcular fechas de tomas
         const fechaTomas = [];
@@ -84,11 +93,17 @@ const getMyPrescriptions = async (req, res) => {
       return plainPrescription;
     });
 
+    logger.endOperation('Obtención de recetas del paciente', { 
+      prescriptionCount: prescriptions.length,
+      patientId: patient.id
+    }, 'PrescriptionController');
+
     res.json({ 
       success: true, 
       prescriptions: prescriptionsWithSchedule
     });
   } catch (error) {
+    logger.operationError('Obtención de recetas del paciente', error, 'PrescriptionController');
     console.error('Error al obtener recetas:', error);
     res.status(500).json({ 
       success: false, 
@@ -100,10 +115,15 @@ const getMyPrescriptions = async (req, res) => {
 
 // Marcar medicamento como tomado
 const markMedicationTaken = async (req, res) => {
+  const { prescriptionItemId } = req.body;
+  logger.startOperation('Marcar medicamento como tomado', { 
+    userId: req.user.id, 
+    prescriptionItemId 
+  }, 'PrescriptionController');
+  
   try {
-    const { prescriptionItemId } = req.body;
-    
     if (!prescriptionItemId) {
+      logger.warn('Solicitud incompleta: falta prescriptionItemId', 'PrescriptionController');
       return res.status(400).json({ 
         success: false, 
         message: 'Se requiere el ID del item de la receta' 
@@ -114,6 +134,7 @@ const markMedicationTaken = async (req, res) => {
     const prescriptionItem = await PrescriptionItem.findByPk(prescriptionItemId);
     
     if (!prescriptionItem) {
+      logger.warn(`Item de receta no encontrado: ID=${prescriptionItemId}`, 'PrescriptionController');
       return res.status(404).json({ 
         success: false, 
         message: 'Item de receta no encontrado' 
@@ -124,6 +145,7 @@ const markMedicationTaken = async (req, res) => {
     const prescription = await Prescription.findByPk(prescriptionItem.receta_id);
     
     if (!prescription) {
+      logger.warn(`Receta no encontrada: ID=${prescriptionItem.receta_id}`, 'PrescriptionController');
       return res.status(404).json({ 
         success: false, 
         message: 'Receta no encontrada' 
@@ -136,15 +158,24 @@ const markMedicationTaken = async (req, res) => {
     });
 
     if (!patient || prescription.paciente_id !== patient.id) {
+      logger.warn(`Acceso denegado: Usuario con DNI=${req.user.dni} intentó marcar medicamento de otro paciente`, 'PrescriptionController');
       return res.status(403).json({ 
         success: false, 
         message: 'No tienes permiso para modificar esta receta' 
       });
     }
 
+    logger.info(`Marcando medicamento como tomado: Item ID=${prescriptionItem.id}, Receta ID=${prescription.id}, Paciente ID=${patient.id}`, 'PrescriptionController');
+
     // Marcar como tomado
     prescriptionItem.tomado = true;
     await prescriptionItem.save();
+
+    logger.endOperation('Marcar medicamento como tomado', { 
+      itemId: prescriptionItem.id,
+      recetaId: prescription.id,
+      pacienteId: patient.id
+    }, 'PrescriptionController');
 
     res.json({ 
       success: true, 
@@ -152,6 +183,7 @@ const markMedicationTaken = async (req, res) => {
       prescriptionItem
     });
   } catch (error) {
+    logger.operationError('Marcar medicamento como tomado', error, 'PrescriptionController');
     console.error('Error al marcar medicamento como tomado:', error);
     res.status(500).json({ 
       success: false, 
@@ -163,13 +195,19 @@ const markMedicationTaken = async (req, res) => {
 
 // Obtener historial de medicamentos para el médico
 const getMedicationHistory = async (req, res) => {
+  const { patientId } = req.params;
+  logger.startOperation('Obtención de historial de medicamentos', { 
+    userId: req.user.id,
+    patientId 
+  }, 'PrescriptionController');
+  
   try {
-    const { patientId } = req.params;
-    
     console.log('Buscando historial para paciente:', patientId);
+    logger.info(`Buscando historial para paciente: ${patientId}`, 'PrescriptionController');
     
     // Verificar que el usuario es un médico
     if (req.user.rol !== 'medico') {
+      logger.warn(`Acceso denegado: Usuario con rol=${req.user.rol} intentó acceder a historial médico`, 'PrescriptionController');
       return res.status(403).json({ 
         success: false, 
         message: 'Acceso denegado. Solo médicos pueden ver historiales' 
@@ -184,9 +222,11 @@ const getMedicationHistory = async (req, res) => {
     
     if (isNumericId) {
       console.log('Buscando paciente por ID numérico:', patientId);
+      logger.debug(`Buscando paciente por ID numérico: ${patientId}`, 'PrescriptionController');
       patient = await Patient.findByPk(patientId);
     } else {
       console.log('Buscando paciente por DNI:', patientId);
+      logger.debug(`Buscando paciente por DNI: ${patientId}`, 'PrescriptionController');
       patient = await Patient.findOne({
         where: { dni: patientId }
       });
@@ -194,6 +234,7 @@ const getMedicationHistory = async (req, res) => {
     
     if (!patient) {
       console.log('Paciente no encontrado con identificador:', patientId);
+      logger.warn(`Paciente no encontrado con identificador: ${patientId}`, 'PrescriptionController');
       return res.status(404).json({ 
         success: false, 
         message: 'Paciente no encontrado' 
@@ -201,6 +242,7 @@ const getMedicationHistory = async (req, res) => {
     }
     
     console.log('Paciente encontrado:', patient.nombre_completo);
+    logger.info(`Paciente encontrado: ID=${patient.id}, Nombre=${patient.nombre_completo}`, 'PrescriptionController');
     
     // Obtener historial de recetas con sus items
     const prescriptions = await Prescription.findAll({
@@ -225,6 +267,12 @@ const getMedicationHistory = async (req, res) => {
     });
     
     console.log(`Se encontraron ${prescriptions.length} recetas para el paciente`);
+    logger.info(`Se encontraron ${prescriptions.length} recetas para el paciente ID=${patient.id}`, 'PrescriptionController');
+    
+    logger.endOperation('Obtención de historial de medicamentos', { 
+      patientId: patient.id,
+      prescriptionCount: prescriptions.length
+    }, 'PrescriptionController');
     
     res.json({ 
       success: true, 
@@ -232,6 +280,7 @@ const getMedicationHistory = async (req, res) => {
       prescriptions 
     });
   } catch (error) {
+    logger.operationError('Obtención de historial de medicamentos', error, 'PrescriptionController');
     console.error('Error al obtener historial de medicamentos:', error);
     res.status(500).json({ 
       success: false, 
@@ -442,11 +491,17 @@ const getPrescriptionsAndMarkTaken = async (req, res) => {
 
 // CREATE - Crear una nueva receta médica
 const createPrescription = async (req, res) => {
+  logger.startOperation('Creación de receta', {
+    userId: req.user.id,
+    userRol: req.user.rol
+  }, 'PrescriptionController');
+  
   try {
     const { fecha, num_receta, paciente_id, profesional_id, items } = req.body;
     
     // Validaciones básicas
     if (!fecha || !num_receta || !paciente_id || !profesional_id || !items || !items.length) {
+      logger.warn('Solicitud incompleta para crear receta', 'PrescriptionController');
       return res.status(400).json({
         success: false,
         message: 'Faltan campos obligatorios para crear la receta'
@@ -455,11 +510,14 @@ const createPrescription = async (req, res) => {
     
     // Verificar que el médico es quien está creando la receta
     if (req.user.rol !== 'medico') {
+      logger.warn(`Acceso denegado: Usuario con rol ${req.user.rol} intentó crear una receta`, 'PrescriptionController');
       return res.status(403).json({
         success: false,
         message: 'Solo los médicos pueden crear recetas'
       });
     }
+    
+    logger.info(`Creando receta para paciente ID=${paciente_id} por profesional ID=${profesional_id}`, 'PrescriptionController');
     
     // Crear la receta
     const newPrescription = await Prescription.create({
@@ -469,9 +527,13 @@ const createPrescription = async (req, res) => {
       profesional_id
     });
     
+    logger.info(`Receta creada con ID=${newPrescription.id}, Num=${num_receta}`, 'PrescriptionController');
+    
     // Crear los items de la receta
     const prescriptionItems = [];
     for (const item of items) {
+      logger.debug(`Creando item para medicamento ID=${item.medicamento_id}`, 'PrescriptionController');
+      
       const newItem = await PrescriptionItem.create({
         receta_id: newPrescription.id,
         medicamento_id: item.medicamento_id,
@@ -483,6 +545,12 @@ const createPrescription = async (req, res) => {
       prescriptionItems.push(newItem);
     }
     
+    logger.info(`Creados ${prescriptionItems.length} items para la receta ID=${newPrescription.id}`, 'PrescriptionController');
+    logger.endOperation('Creación de receta', {
+      recetaId: newPrescription.id,
+      itemsCount: prescriptionItems.length
+    }, 'PrescriptionController');
+    
     res.status(201).json({
       success: true,
       message: 'Receta creada exitosamente',
@@ -492,6 +560,7 @@ const createPrescription = async (req, res) => {
       }
     });
   } catch (error) {
+    logger.operationError('Creación de receta', error, 'PrescriptionController');
     console.error('Error al crear receta:', error);
     res.status(500).json({
       success: false,

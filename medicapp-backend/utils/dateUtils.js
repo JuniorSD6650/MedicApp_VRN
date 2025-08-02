@@ -1,5 +1,8 @@
+const logger = require('./logger');
+
 function parseDate(dateString) {
   if (!dateString || dateString.trim() === '') {
+    logger.debug('Intento de parseo de fecha con valor vacío o nulo', 'dateUtils');
     return null;
   }
 
@@ -15,19 +18,27 @@ function parseDate(dateString) {
       
       // Verificar que la fecha es válida
       if (date.getDate() === day && date.getMonth() === month && date.getFullYear() === year) {
+        logger.debug(`Fecha parseada correctamente: ${dateString} -> ${date.toISOString()}`, 'dateUtils');
         return date;
       }
     }
     
+    logger.warn(`Formato de fecha inválido: ${dateString}`, 'dateUtils');
     return null;
   } catch (error) {
+    logger.error(`Error parseando fecha "${dateString}": ${error.message}`, 'dateUtils');
     return null;
   }
 }
 
 function formatDate(date) {
-  if (!date) return null;
-  return date.toISOString().split('T')[0];
+  if (!date) {
+    logger.debug('Intento de formateo de fecha con valor nulo', 'dateUtils');
+    return null;
+  }
+  const formattedDate = date.toISOString().split('T')[0];
+  logger.debug(`Fecha formateada: ${date} -> ${formattedDate}`, 'dateUtils');
+  return formattedDate;
 }
 
 module.exports = {

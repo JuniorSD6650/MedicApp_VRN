@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
+const logger = require('../utils/logger');
 
 const Patient = sequelize.define('Patient', {
   id: {
@@ -36,7 +37,32 @@ const Patient = sequelize.define('Patient', {
   }
 }, {
   tableName: 'patients',
-  timestamps: true
+  timestamps: true,
+  hooks: {
+    beforeValidate: async (patient) => {
+      logger.debug(`Validando datos de paciente: ${patient.nombre_completo}`, 'PatientModel');
+    },
+    beforeCreate: async (patient) => {
+      logger.startOperation('Creación de paciente', { 
+        dni: patient.dni,
+        nombre: patient.nombre_completo
+      }, 'PatientModel');
+    },
+    afterCreate: async (patient) => {
+      logger.info(`Paciente creado: ID=${patient.id}, DNI=${patient.dni}, Nombre=${patient.nombre_completo}`, 'PatientModel');
+      logger.endOperation('Creación de paciente', { id: patient.id }, 'PatientModel');
+    },
+    beforeUpdate: async (patient) => {
+      logger.startOperation('Actualización de paciente', { id: patient.id }, 'PatientModel');
+    },
+    afterUpdate: async (patient) => {
+      logger.info(`Paciente actualizado: ID=${patient.id}, Nombre=${patient.nombre_completo}`, 'PatientModel');
+      logger.endOperation('Actualización de paciente', { id: patient.id }, 'PatientModel');
+    },
+    beforeDestroy: async (patient) => {
+      logger.warn(`Eliminando paciente: ID=${patient.id}, DNI=${patient.dni}, Nombre=${patient.nombre_completo}`, 'PatientModel');
+    }
+  }
 });
 
 module.exports = Patient;

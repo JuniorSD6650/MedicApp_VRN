@@ -1,14 +1,17 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+const logger = require('../utils/logger');
 
 const register = async (req, res) => {
+  logger.startOperation('Registro de usuario', { email: req.body.email, rol: req.body.rol || 'paciente' }, 'AuthController');
   try {
     const { nombre, email, password, rol } = req.body;
 
     // Verificar si el usuario ya existe
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
+      logger.warn(`Intento de registro con email ya existente: ${email}`, 'AuthController');
       return res.status(400).json({ message: 'El usuario ya existe' });
     }
 
@@ -20,12 +23,19 @@ const register = async (req, res) => {
       rol: rol || 'paciente'
     });
 
+    logger.info(`Usuario creado exitosamente: ID=${user.id}, Email=${email}, Rol=${user.rol}`, 'AuthController');
+
     // Generar token
     const token = jwt.sign(
       { id: user.id, email: user.email, rol: user.rol, dni: user.dni || '' },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
+
+    logger.endOperation('Registro de usuario', { 
+      userId: user.id, 
+      rol: user.rol 
+    }, 'AuthController');
 
     res.status(201).json({
       message: 'Usuario registrado exitosamente',
@@ -38,12 +48,14 @@ const register = async (req, res) => {
       }
     });
   } catch (error) {
+    logger.operationError('Registro de usuario', error, 'AuthController');
     console.error('Error en registro:', error);
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 };
 
 const login = async (req, res) => {
+  logger.startOperation('Login de usuario', { email: req.body.email }, 'AuthController');
   try {
     const { email, password } = req.body;
 
@@ -52,6 +64,7 @@ const login = async (req, res) => {
     // Buscar usuario
     const user = await User.findOne({ where: { email } });
     if (!user) {
+      logger.warn(`Intento de login fallido - Usuario no encontrado: ${email}`, 'AuthController');
       console.log(`Usuario no encontrado: ${email}`);
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
@@ -59,10 +72,12 @@ const login = async (req, res) => {
     // Verificar contraseña usando el método del modelo
     const isValidPassword = await user.checkPassword(password);
     if (!isValidPassword) {
+      logger.warn(`Intento de login fallido - Contraseña incorrecta para: ${email}`, 'AuthController');
       console.log(`Contraseña incorrecta para: ${email}`);
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
+    logger.info(`Login exitoso para usuario: ID=${user.id}, Email=${email}, Rol=${user.rol}`, 'AuthController');
     console.log(`Login exitoso para: ${email}, rol: ${user.rol}, dni: ${user.dni || 'no disponible'}`);
 
     // Generar token incluyendo el DNI
@@ -71,6 +86,11 @@ const login = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
+
+    logger.endOperation('Login de usuario', { 
+      userId: user.id, 
+      rol: user.rol 
+    }, 'AuthController');
 
     res.json({
       message: 'Login exitoso',
@@ -84,6 +104,7 @@ const login = async (req, res) => {
       }
     });
   } catch (error) {
+    logger.operationError('Login de usuario', error, 'AuthController');
     console.error('Error en login:', error);
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }

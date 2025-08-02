@@ -6,6 +6,9 @@ const Medication = require('./Medication');
 const Prescription = require('./Prescription');
 const PrescriptionItem = require('./PrescriptionItem');
 const MedicationIntake = require('./MedicationIntake');
+const logger = require('../utils/logger');
+
+logger.info('Iniciando configuración de asociaciones entre modelos', 'Models');
 
 // Definir asociaciones
 Prescription.belongsTo(Patient, { foreignKey: 'paciente_id', as: 'paciente' });
@@ -28,6 +31,8 @@ MedicationIntake.belongsTo(PrescriptionItem, {
   foreignKey: 'prescription_item_id', 
   as: 'prescription_item' 
 });
+
+logger.info('Asociaciones entre modelos configuradas correctamente', 'Models');
 
 module.exports = {
   sequelize,

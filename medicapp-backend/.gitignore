@@ -10,6 +10,9 @@ node_modules/
 # log files
 log-medicapp/*
 
+# log files
+scripts/*
+
 # uploads files
 uploads/*
 !uploads/.gitkeep

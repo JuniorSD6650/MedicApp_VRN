@@ -3,7 +3,14 @@
   "version": "1.0.0",
   "description": "Frontend multiplataforma para MedicApp - Gestión inteligente de medicación",
   "main": "index.js",
-  "keywords": ["react-native", "expo", "medical", "healthcare", "medication", "mobile-app"],
+  "keywords": [
+    "react-native",
+    "expo",
+    "medical",
+    "healthcare",
+    "medication",
+    "mobile-app"
+  ],
   "author": "Your Name",
   "license": "MIT",
   "scripts": {
@@ -16,24 +23,24 @@
     "build:ios": "expo build:ios"
   },
   "dependencies": {
-    "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native-async-storage/async-storage": "2.1.2",
     "@react-navigation/bottom-tabs": "^6.6.1",
     "@react-navigation/drawer": "^6.7.2",
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/stack": "^6.4.1",
+    "date-fns": "^3.6.0",
     "expo": "~53.0.20",
-    "expo-document-picker": "~12.0.2",
-    "expo-status-bar": "~2.0.0",
-    "expo-splash-screen": "~0.27.6",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "react-native": "0.76.5",
-    "react-native-gesture-handler": "~2.20.2",
-    "react-native-reanimated": "~3.16.1",
-    "react-native-safe-area-context": "4.12.0",
-    "react-native-screens": "~4.1.0",
-    "react-native-web": "~0.19.13",
-    "date-fns": "^3.6.0"
+    "expo-document-picker": "~13.1.6",
+    "expo-splash-screen": "^0.30.10",
+    "expo-status-bar": "~2.2.3",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-native": "0.79.5",
+    "react-native-gesture-handler": "~2.24.0",
+    "react-native-reanimated": "~3.17.4",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "~4.11.1",
+    "react-native-web": "^0.20.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

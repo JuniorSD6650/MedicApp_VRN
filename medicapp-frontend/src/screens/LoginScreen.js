@@ -12,6 +12,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../context/AuthContext';
 import CustomAlert from '../components/CustomAlert';
+import { Image } from 'react-native';
 
 const LoginScreen = ({ navigation }) => {
   const { login } = useAuth();
@@ -66,7 +67,7 @@ const LoginScreen = ({ navigation }) => {
   const handleQuickLogin = async (role) => {
     setIsLoading(true);
     let credentials;
-    
+
     switch (role) {
       case 'patient':
         credentials = { email: 'paciente@medicapp.com', password: 'paciente123' };
@@ -81,7 +82,7 @@ const LoginScreen = ({ navigation }) => {
 
     setEmail(credentials.email);
     setPassword(credentials.password);
-    
+
     try {
       const result = await login(credentials.email, credentials.password);
       if (!result.success) {
@@ -95,15 +96,18 @@ const LoginScreen = ({ navigation }) => {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.logo}>💊</Text>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.logo}
+          />
           <Text style={styles.title}>MedicApp</Text>
           <Text style={styles.subtitle}>Gestión inteligente de medicación</Text>
         </View>
@@ -166,7 +170,7 @@ const LoginScreen = ({ navigation }) => {
         {/* Quick Access */}
         <View style={styles.quickAccess}>
           <Text style={styles.quickAccessTitle}>Acceso rápido para demo</Text>
-          
+
           <TouchableOpacity
             style={[styles.quickButton, styles.patientButton]}
             onPress={() => handleQuickLogin('patient')}
@@ -232,8 +236,8 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logo: {
-    fontSize: 60,
-    marginBottom: 10,
+    width: 200,
+    height: 200,
   },
   title: {
     fontSize: 32,

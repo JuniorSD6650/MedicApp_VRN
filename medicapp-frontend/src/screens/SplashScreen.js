@@ -6,10 +6,11 @@ const SplashScreen = () => {
     <View style={styles.container}>
       <View style={styles.content}>
         {/* Logo o icono de la app */}
-        <View style={styles.logoContainer}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>💊</Text>
-          </View>
+        <View style={styles.logo}>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.logo}
+          />
         </View>
 
         {/* Nombre de la aplicación */}
@@ -44,24 +45,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  logoContainer: {
-    marginBottom: 30,
-  },
   logo: {
     width: 120,
     height: 120,
-    borderRadius: 60,
-    backgroundColor: '#2E86AB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
+   
   },
   logoText: {
     fontSize: 60,

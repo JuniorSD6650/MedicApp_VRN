@@ -28,6 +28,7 @@ import CsvUploadScreen from '../screens/CsvUploadScreen';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 const Drawer = createDrawerNavigator();
+const MainStack = createStackNavigator();
 
 // Loading component
 const LoadingScreen = () => (
@@ -265,14 +266,14 @@ const AppNavigator = () => {
     return <AuthNavigator />;
   }
 
-  // Navegación condicional según el rol del usuario
-  switch (user?.role) {
-    case 'patient':
-      return <PatientNavigator />;
-    case 'doctor':
-      return <DoctorNavigator />;
+  // Renderizar el navegador correspondiente según el rol
+  switch (user?.rol) {
     case 'admin':
       return <AdminNavigator />;
+    case 'medico':
+      return <DoctorNavigator />;
+    case 'paciente':
+      return <PatientNavigator />;
     default:
       return <AuthNavigator />;
   }

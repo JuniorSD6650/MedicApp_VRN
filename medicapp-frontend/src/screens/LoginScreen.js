@@ -15,7 +15,7 @@ import CustomAlert from '../components/CustomAlert';
 import { Image } from 'react-native';
 
 const LoginScreen = ({ navigation }) => {
-  const { login } = useAuth();
+  const { login: loginContext } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -53,11 +53,27 @@ const LoginScreen = ({ navigation }) => {
 
     setIsLoading(true);
     try {
-      const result = await login(email.trim(), password);
-      if (!result.success) {
-        showAlert('Error', result.error || 'Error de autenticación');
+      console.log('Iniciando proceso de login...');
+      const response = await fetch('http://192.168.18.20:4000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const data = await response.json();
+      console.log('Respuesta del servidor:', data);
+
+      if (response.ok && data.token) {
+        console.log('Token recibido:', data.token);
+        console.log('Usuario recibido:', data.user);
+        console.log('Llamando a loginContext...');
+        await loginContext(data.token, data.user);
+        console.log('LoginContext ejecutado exitosamente');
+      } else {
+        console.log('Error en login:', data.message);
+        showAlert('Error', data.message || 'Credenciales inválidas');
       }
     } catch (error) {
+      console.log('Error en handleLogin:', error);
       showAlert('Error', 'Ha ocurrido un error inesperado');
     } finally {
       setIsLoading(false);
@@ -70,13 +86,13 @@ const LoginScreen = ({ navigation }) => {
 
     switch (role) {
       case 'patient':
-        credentials = { email: 'paciente@medicapp.com', password: 'paciente123' };
+        credentials = { email: 'paciente@medicapp.com', password: '12345678' };
         break;
       case 'doctor':
-        credentials = { email: 'doctor@medicapp.com', password: 'doctor123' };
+        credentials = { email: 'medico@medicapp.com', password: '12345678' };
         break;
       case 'admin':
-        credentials = { email: 'admin@medicapp.com', password: 'admin123' };
+        credentials = { email: 'admin@medicapp.com', password: '12345678' };
         break;
     }
 
@@ -84,11 +100,31 @@ const LoginScreen = ({ navigation }) => {
     setPassword(credentials.password);
 
     try {
-      const result = await login(credentials.email, credentials.password);
-      if (!result.success) {
-        showAlert('Error', result.error || 'Error en el acceso rápido');
+      console.log('Iniciando quick login con rol:', role);
+      const response = await fetch('http://192.168.18.20:4000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+      const data = await response.json();
+      console.log('Respuesta quick login:', data);
+
+      if (response.ok && data.token) {
+        console.log('Token recibido:', data.token);
+        console.log('Usuario recibido:', data.user);
+        console.log('Llamando a loginContext...');
+        const result = await loginContext(data.token, data.user);
+        console.log('Resultado loginContext:', result);
+        
+        if (!result.success) {
+          showAlert('Error', result.error || 'Error al procesar el login');
+        }
+      } else {
+        console.log('Error en quick login:', data.message);
+        showAlert('Error', data.message || 'Credenciales inválidas');
       }
     } catch (error) {
+      console.log('Error detallado en handleQuickLogin:', error);
       showAlert('Error', 'Ha ocurrido un error inesperado');
     } finally {
       setIsLoading(false);

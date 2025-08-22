@@ -39,40 +39,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = async (emailOrCredentials, password) => {
+  const login = async (token, user) => {
     try {
-      setLoading(true);
+      console.log('AuthContext - login iniciado con:', { token, user });
       
-      // Permitir tanto el formato antiguo (email, password) como el nuevo (credentials)
-      let credentials;
-      if (typeof emailOrCredentials === 'string') {
-        credentials = { email: emailOrCredentials, password };
-      } else {
-        credentials = emailOrCredentials;
-      }
+      // Guardar en AsyncStorage
+      await AsyncStorage.setItem('authToken', token);
+      await AsyncStorage.setItem('userData', JSON.stringify(user));
       
-      const response = await apiService.login(credentials);
+      // Actualizar estado
+      setUser(user);
+      setIsAuthenticated(true);
       
-      if (response.success && response.token && response.user) {
-        await AsyncStorage.setItem('authToken', response.token);
-        await AsyncStorage.setItem('userData', JSON.stringify(response.user));
-        
-        apiService.setAuthToken(response.token);
-        setUser(response.user);
-        setIsAuthenticated(true);
-        
-        return { success: true, user: response.user };
-      } else {
-        throw new Error(response.message || 'Invalid response from server');
-      }
+      console.log('AuthContext - login exitoso, usuario establecido:', user);
+      return { success: true, user };
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('AuthContext - error en login:', error);
       return { 
         success: false, 
         error: error.message || 'Error de autenticación' 
       };
-    } finally {
-      setLoading(false);
     }
   };
 

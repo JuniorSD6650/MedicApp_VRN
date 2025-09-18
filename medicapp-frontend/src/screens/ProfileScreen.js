@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,26 +7,55 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../context/AuthContext';
 import CustomAlert from '../components/CustomAlert';
+import userService from '../services/userService';
 
 const ProfileScreen = ({ navigation }) => {
   const { user, logout, updateUser } = useAuth();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [fullProfile, setFullProfile] = useState(null);
   const [alertConfig, setAlertConfig] = useState({
     visible: false,
     title: '',
     message: '',
     buttons: []
   });
+  // Solo los campos requeridos
   const [editFormData, setEditFormData] = useState({
-    name: user?.name || '',
-    lastName: user?.lastName || '',
-    phone: user?.phone || '',
-    email: user?.email || '',
+    nombre: '',
+    email: '',
+    dni: ''
   });
+
+  // Cargar perfil completo al iniciar
+  useEffect(() => {
+    loadFullProfile();
+  }, []);
+
+  const loadFullProfile = async () => {
+    try {
+      setLoading(true);
+      const response = await userService.getProfile();
+      if (response.success && response.data) {
+        setFullProfile(response.data);
+        setEditFormData({
+          nombre: response.data.nombre || '',
+          email: response.data.email || '',
+          dni: response.data.dni || ''
+        });
+      }
+      // No mostrar alerta si hay datos, solo si falla realmente
+    } catch (error) {
+      showAlert('Error', 'Ha ocurrido un error al cargar tu perfil');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const showAlert = (title, message, buttons = [{ text: 'OK' }]) => {
     setAlertConfig({
@@ -60,7 +89,6 @@ const ProfileScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            // The logout from AuthContext should handle navigation
           }
         }
       ]
@@ -69,10 +97,21 @@ const ProfileScreen = ({ navigation }) => {
 
   const handleSaveProfile = async () => {
     try {
-      const updatedUser = { ...user, ...editFormData };
-      const result = await updateUser(updatedUser);
-      
+      setLoading(true);
+      // Validar campos obligatorios
+      if (!editFormData.nombre || !editFormData.email) {
+        showAlert('Error', 'El nombre y el email son obligatorios');
+        setLoading(false);
+        return;
+      }
+      const userData = {
+        nombre: editFormData.nombre,
+        email: editFormData.email,
+        dni: editFormData.dni
+      };
+      const result = await userService.updateProfile(userData);
       if (result.success) {
+        await loadFullProfile();
         showAlert('Éxito', 'Perfil actualizado correctamente');
         setIsEditModalVisible(false);
       } else {
@@ -80,39 +119,25 @@ const ProfileScreen = ({ navigation }) => {
       }
     } catch (error) {
       showAlert('Error', 'Ha ocurrido un error inesperado');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getRoleTitle = (role) => {
-    switch (role) {
-      case 'patient': return 'Paciente';
-      case 'doctor': return 'Médico';
-      case 'admin': return 'Administrador';
-      default: return 'Usuario';
-    }
-  };
-
-  const ProfileItem = ({ icon, label, value, onEdit }) => (
-    <View style={styles.profileItem}>
-      <View style={styles.profileItemLeft}>
-        <Text style={styles.profileItemIcon}>{icon}</Text>
-        <View>
-          <Text style={styles.profileItemLabel}>{label}</Text>
-          <Text style={styles.profileItemValue}>{value || 'No especificado'}</Text>
-        </View>
+  if (loading && !fullProfile) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2E86AB" />
+        <Text style={styles.loadingText}>Cargando perfil...</Text>
       </View>
-      {onEdit && (
-        <TouchableOpacity onPress={onEdit} style={styles.editButton}>
-          <Text style={styles.editButtonText}>✏️</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+    );
+  }
+
+  const profileData = fullProfile || user;
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
@@ -132,92 +157,36 @@ const ProfileScreen = ({ navigation }) => {
         <View style={styles.avatarSection}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {user?.name?.charAt(0)?.toUpperCase() || '👤'}
+              {profileData?.nombre?.charAt(0)?.toUpperCase() || '👤'}
             </Text>
           </View>
-          <Text style={styles.userName}>{user?.name} {user?.lastName}</Text>
-          <Text style={styles.userRole}>{getRoleTitle(user?.role)}</Text>
+          <Text style={styles.userName}>
+            {profileData?.nombre}
+          </Text>
         </View>
 
-        {/* Profile Information */}
+        {/* Información Personal */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Información Personal</Text>
-          
           <ProfileItem
             icon="👤"
-            label="Nombre completo"
-            value={`${user?.name || ''} ${user?.lastName || ''}`.trim()}
-            onEdit={() => setIsEditModalVisible(true)}
+            label="Nombre"
+            value={profileData?.nombre}
           />
-          
-          <ProfileItem
-            icon="✉️"
-            label="Email"
-            value={user?.email}
-          />
-          
-          <ProfileItem
-            icon="📱"
-            label="Teléfono"
-            value={user?.phone}
-            onEdit={() => setIsEditModalVisible(true)}
-          />
-          
           <ProfileItem
             icon="🆔"
             label="DNI"
-            value={user?.dni}
+            value={profileData?.dni}
+          />
+          <ProfileItem
+            icon="✉️"
+            label="Email"
+            value={profileData?.email}
           />
         </View>
 
-        {/* Role-specific Information */}
-        {user?.role === 'doctor' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Información Profesional</Text>
-            
-            <ProfileItem
-              icon="🏥"
-              label="Especialidad"
-              value={user?.speciality}
-            />
-            
-            <ProfileItem
-              icon="📋"
-              label="Matrícula"
-              value={user?.license}
-            />
-          </View>
-        )}
-
-        {user?.role === 'patient' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Información Médica</Text>
-            
-            <ProfileItem
-              icon="🎂"
-              label="Fecha de nacimiento"
-              value={user?.birthDate}
-            />
-            
-            <ProfileItem
-              icon="🏠"
-              label="Dirección"
-              value={user?.address}
-            />
-          </View>
-        )}
-
         {/* Actions */}
         <View style={styles.section}>
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => setIsEditModalVisible(true)}
-          >
-            <Text style={styles.actionButtonIcon}>✏️</Text>
-            <Text style={styles.actionButtonText}>Editar Perfil</Text>
-            <Text style={styles.actionButtonArrow}>→</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.logoutActionButton} onPress={handleLogout}>
             <Text style={styles.logoutActionIcon}>🚪</Text>
             <Text style={styles.logoutActionText}>Cerrar Sesión</Text>
@@ -238,45 +207,33 @@ const ProfileScreen = ({ navigation }) => {
               <Text style={styles.modalCancelText}>Cancelar</Text>
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Editar Perfil</Text>
-            <TouchableOpacity onPress={handleSaveProfile}>
-              <Text style={styles.modalSaveText}>Guardar</Text>
+            <TouchableOpacity onPress={handleSaveProfile} disabled={loading}>
+              <Text style={styles.modalSaveText}>
+                {loading ? 'Guardando...' : 'Guardar'}
+              </Text>
             </TouchableOpacity>
           </View>
-
           <ScrollView style={styles.modalContent}>
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Nombre</Text>
+              <Text style={styles.inputLabel}>Nombre *</Text>
               <TextInput
                 style={styles.input}
-                value={editFormData.name}
-                onChangeText={(text) => setEditFormData({...editFormData, name: text})}
+                value={editFormData.nombre}
+                onChangeText={(text) => setEditFormData({...editFormData, nombre: text})}
                 placeholder="Nombre"
               />
             </View>
-
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Apellido</Text>
+              <Text style={styles.inputLabel}>DNI</Text>
               <TextInput
                 style={styles.input}
-                value={editFormData.lastName}
-                onChangeText={(text) => setEditFormData({...editFormData, lastName: text})}
-                placeholder="Apellido"
+                value={editFormData.dni}
+                onChangeText={(text) => setEditFormData({...editFormData, dni: text})}
+                placeholder="DNI"
               />
             </View>
-
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Teléfono</Text>
-              <TextInput
-                style={styles.input}
-                value={editFormData.phone}
-                onChangeText={(text) => setEditFormData({...editFormData, phone: text})}
-                placeholder="Teléfono"
-                keyboardType="phone-pad"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Email</Text>
+              <Text style={styles.inputLabel}>Email *</Text>
               <TextInput
                 style={styles.input}
                 value={editFormData.email}
@@ -286,6 +243,7 @@ const ProfileScreen = ({ navigation }) => {
                 autoCapitalize="none"
               />
             </View>
+            <Text style={styles.requiredFieldsNote}>* Campos obligatorios</Text>
           </ScrollView>
         </View>
       </Modal>
@@ -369,11 +327,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333333',
     marginBottom: 5,
-  },
-  userRole: {
-    fontSize: 16,
-    color: '#6C757D',
-    textTransform: 'capitalize',
   },
   section: {
     backgroundColor: '#FFFFFF',
@@ -516,6 +469,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333333',
   },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#333333',
+  },
+  requiredFieldsNote: {
+    fontSize: 14,
+    color: '#DC3545',
+    marginTop: 10,
+    textAlign: 'center',
+  },
 });
+
+const ProfileItem = ({ icon, label, value }) => (
+  <View style={styles.profileItem}>
+    <View style={styles.profileItemLeft}>
+      <Text style={styles.profileItemIcon}>{icon}</Text>
+      <View>
+        <Text style={styles.profileItemLabel}>{label}</Text>
+        <Text style={styles.profileItemValue}>{value || 'No especificado'}</Text>
+      </View>
+    </View>
+    {/* Botón de editar eliminado */}
+  </View>
+);
 
 export default ProfileScreen;

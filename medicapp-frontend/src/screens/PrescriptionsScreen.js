@@ -7,8 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Alert,
-  Share
+  Alert
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../context/AuthContext';
@@ -16,75 +15,60 @@ import { prescriptionService } from '../services/prescriptionService';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import api from '../services/api';
-import { Ionicons } from '@expo/vector-icons'; // Importar iconos
+import { useFocusEffect } from '@react-navigation/native';
 
 const PrescriptionsScreen = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'active', 'completed'
 
-  useEffect(() => {
-    if (user?.id) {
-      loadPrescriptions();
+  // Función para cargar datos con token verificado
+  const loadPrescriptions = React.useCallback(async () => {
+    if (!user?.id || !token) {
+      console.log('⚠️ No hay usuario o token para cargar prescripciones');
+      setPrescriptions([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
     }
-  }, [user?.id]);
 
-  const loadPrescriptions = async () => {
     try {
+      // Siempre limpiar y mostrar loading al iniciar la carga
       setLoading(true);
-      console.log('🔄 Cargando prescripciones para el usuario:', user.id);
-
-      // Cargar todas las prescripciones para poder mostrar los contadores correctamente
-      const allResponse = await prescriptionService.getPrescriptionsByStatus('all');
       
-      if (allResponse.success && allResponse.data) {
-        console.log(`✅ Se recibieron ${allResponse.data.length} prescripciones en total`);
+      // Configurar token antes de hacer peticiones
+      console.log('🔑 Configurando token para cargar prescripciones...');
+      await api.setAuthToken(token);
+      
+      console.log('🔄 Solicitando prescripciones para usuario:', user.id);
+      const response = await prescriptionService.getPrescriptionsByStatus('all');
+      
+      if (response.success && response.data) {
+        console.log(`✅ Se recibieron ${response.data.length} prescripciones`);
         
-        // Convertir los datos al formato esperado por el componente
-        const formattedPrescriptions = allResponse.data.map(prescription => ({
+        // Convertir datos al formato esperado por el componente
+        const formattedPrescriptions = response.data.map(prescription => ({
           id: prescription.id,
           date: new Date(prescription.fecha),
           status: hasTakenAllMedications(prescription) ? 'completed' : 'active',
           doctorName: prescription.profesional ? 
             `Dr. ${prescription.profesional.nombres} ${prescription.profesional.apellidos}` : 
             'Doctor no especificado',
-          // Usar dx_descripcion del primer item como diagnóstico general de la receta
-          diagnosis: prescription.items && prescription.items.length > 0 && prescription.items[0].dx_descripcion 
-            ? prescription.items[0].dx_descripcion 
-            : 'No se especificó diagnóstico',
-          medications: (prescription.items || []).map(item => {
-            // Buscar las tomas asociadas a este item para obtener las instrucciones (notes)
-            const intakes = item.intakes || [];
-            const instructions = intakes.length > 0 && intakes[0].notes 
-              ? intakes[0].notes 
-              : 'Seguir indicaciones médicas';
-              
-            return {
-              id: item.id,
-              name: item.medicamento?.descripcion || 'Medicamento no especificado',
-              dosage: `${item.cantidad_solicitada} unidad(es)`,
-              taken: item.tomado ? true : false,
-              // Agregar información de frecuencia y duración
-              frequency: item.dx_codigo ? `${item.dx_codigo} veces al día` : 'Según indicación médica',
-              duration: item.medicamento?.duracion || 'Según prescripción médica',
-              instructions: instructions
-            };
-          }),
+          diagnosis: prescription.diagnóstico || 'No se especificó diagnóstico',
+          medications: (prescription.items || []).map(item => ({
+            id: item.id,
+            name: item.medicamento?.descripcion || 'Medicamento no especificado',
+            dosage: `${item.cantidad_solicitada} unidad(es)`,
+            taken: item.tomado ? true : false
+          })),
           notes: prescription.observaciones || ''
         }));
         
         setPrescriptions(formattedPrescriptions);
-        
-        // Si hay un filtro activo, cargar también las prescripciones filtradas
-        if (filterStatus !== 'all') {
-          // No necesitamos hacer otra petición, podemos filtrar en memoria
-          // ya que tenemos toda la información necesaria
-        }
       } else {
-        console.warn('⚠️ No se pudieron obtener prescripciones:', allResponse.error);
-        Alert.alert('Error', 'No se pudieron cargar las recetas');
+        console.warn('⚠️ Error al obtener prescripciones:', response.error);
         setPrescriptions([]);
       }
     } catch (error) {
@@ -95,30 +79,43 @@ const PrescriptionsScreen = ({ navigation }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user?.id, token]);
 
-  // Función auxiliar mejorada para determinar si todos los medicamentos de una prescripción han sido tomados
-  const hasTakenAllMedications = (prescription) => {
-    if (!prescription.items || prescription.items.length === 0) return false;
-    
-    // Verificar si todos los items están marcados como tomados
-    const allTaken = prescription.items.every(item => item.tomado === true);
-    
-    console.log(`Receta ID=${prescription.id}: ${allTaken ? 'Todos tomados' : 'Aún pendientes'}`);
-    
-    return allTaken;
-  };
+  // Cargar datos al montar el componente
+  useEffect(() => {
+    console.log('🔄 Montando PrescriptionsScreen - carga inicial');
+    loadPrescriptions();
+  }, [loadPrescriptions]);
 
-  const onRefresh = async () => {
+  // Recargar datos cuando la pantalla recibe foco
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔍 PrescriptionsScreen recibió foco - recargando datos');
+      // Mostrar loading para indicar actualización
+      setLoading(true);
+      loadPrescriptions();
+    }, [loadPrescriptions])
+  );
+
+  const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
     await loadPrescriptions();
+  }, [loadPrescriptions]);
+
+  // Función auxiliar para determinar si todos los medicamentos han sido tomados
+  const hasTakenAllMedications = (prescription) => {
+    if (!prescription.items || prescription.items.length === 0) return false;
+    return prescription.items.every(item => item.tomado);
   };
 
   const navigateToPrescriptionDetail = (prescription) => {
-    navigation.navigate('PrescriptionDetail', { prescription });
+    navigation.navigate('PrescriptionDetail', { 
+      prescription, 
+      prescriptionId: prescription.id  // Pasar también el ID para permitir recarga
+    });
   };
 
-  // Modificar la función que obtiene las prescripciones filtradas
+  // Obtener prescripciones filtradas
   const getFilteredPrescriptions = () => {
     switch (filterStatus) {
       case 'active':
@@ -241,44 +238,6 @@ const PrescriptionCard = ({ prescription, onPress }) => {
 
   const progress = calculateProgress();
 
-  // Función para compartir la receta
-  const handleShare = async () => {
-    try {
-      // Formatear los medicamentos como texto
-      const medicationsList = prescription.medications.map(med => 
-        `• ${med.name} ${med.dosage}${med.taken ? ' ✓' : ''}`
-      ).join('\n');
-      
-      // Crear el mensaje para compartir
-      const message = `
-📋 RECETA MÉDICA
-📅 Fecha: ${format(new Date(prescription.date), 'dd MMMM yyyy', { locale: es })}
-👨‍⚕️ Doctor: ${prescription.doctorName}
-🔍 Diagnóstico: ${prescription.diagnosis}
-
-💊 MEDICAMENTOS:
-${medicationsList}
-
-📝 Notas: ${prescription.notes || 'Sin notas adicionales'}
-      `;
-      
-      // Mostrar diálogo de compartir
-      const result = await Share.share({
-        message: message.trim(),
-        title: 'Receta Médica - MedicApp'
-      });
-      
-      if (result.action === Share.sharedAction) {
-        console.log('✅ Receta compartida exitosamente');
-      } else if (result.action === Share.dismissedAction) {
-        console.log('❌ Compartir cancelado');
-      }
-    } catch (error) {
-      console.error('Error al compartir receta:', error);
-      Alert.alert('Error', 'No se pudo compartir la receta');
-    }
-  };
-
   return (
     <TouchableOpacity style={styles.prescriptionCard} onPress={onPress}>
       <View style={styles.prescriptionHeader}>
@@ -289,9 +248,6 @@ ${medicationsList}
           <Text style={styles.doctorName}>{prescription.doctorName}</Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-            <Ionicons name="share-outline" size={22} color="#2E86AB" />
-          </TouchableOpacity>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(prescription.status) }]}>
             <Text style={styles.statusText}>{getStatusText(prescription.status)}</Text>
           </View>
@@ -540,10 +496,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  shareButton: {
-    padding: 8,
-    marginRight: 10,
-  },
 });
 
 export default PrescriptionsScreen;
+  

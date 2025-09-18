@@ -4,6 +4,7 @@ const { authenticateToken } = require('../middleware/auth.middleware');
 const PrescriptionService = require('../services/prescription.service');
 const medicationIntakeController = require('../controllers/medicationIntake.controller');
 const logger = require('../utils/logger');
+const { Prescription, PrescriptionItem, Medication, Professional, Patient } = require('../models');
 
 router.use(authenticateToken);
 
@@ -85,6 +86,78 @@ router.get('/patient/:patientId', async (req, res) => {
       success: false, 
       error: "Error al obtener recetas del paciente",
       details: error.message
+    });
+  }
+});
+
+// Ruta para obtener una receta específica por ID
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    logger.info(`Solicitando detalle de receta ID=${id}`, 'PrescriptionRoutes');
+    
+    // Buscar la receta por ID
+    const prescription = await Prescription.findByPk(id, {
+      include: [
+        {
+          model: PrescriptionItem,
+          as: 'items',
+          include: [
+            {
+              model: Medication,
+              as: 'medicamento'
+            }
+          ]
+        },
+        {
+          model: Professional,
+          as: 'profesional'
+        },
+        {
+          model: Patient,
+          as: 'paciente'
+        }
+      ]
+    });
+    
+    if (!prescription) {
+      logger.warn(`Receta no encontrada con ID=${id}`, 'PrescriptionRoutes');
+      return res.status(404).json({
+        success: false,
+        message: 'Receta no encontrada'
+      });
+    }
+    
+    // Verificar permisos: asegurarse de que el usuario actual tiene derecho a ver esta receta
+    const userId = req.user.id;
+    const userRole = req.user.rol;
+    
+    logger.debug(`Usuario ID=${userId}, Rol=${userRole} accediendo a receta ID=${id}`, 'PrescriptionRoutes');
+    
+    // Si es paciente, verificar que la receta le pertenece
+    if (userRole === 'paciente') {
+      const patient = await Patient.findOne({ where: { dni: req.user.dni } });
+      if (!patient || prescription.paciente_id !== patient.id) {
+        logger.warn(`Acceso denegado: Usuario ID=${userId} intentó acceder a receta que no le pertenece`, 'PrescriptionRoutes');
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes permiso para ver esta receta'
+        });
+      }
+    }
+    
+    logger.info(`Detalle de receta ID=${id} enviado exitosamente`, 'PrescriptionRoutes');
+    
+    res.json({
+      success: true,
+      prescription
+    });
+  } catch (error) {
+    logger.error(`Error al obtener receta ID=${req.params.id}: ${error.message}`, 'PrescriptionRoutes');
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message
     });
   }
 });

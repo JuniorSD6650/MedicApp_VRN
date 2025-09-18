@@ -1,248 +1,359 @@
-// Datos mockeados de recetas
-const MOCK_PRESCRIPTIONS = [
-  {
-    id: 1,
-    patientId: 3,
-    doctorId: 2,
-    doctorName: 'Dr. Juan Pérez',
-    date: '2025-08-01',
-    diagnosis: 'Dolor de cabeza y gastritis',
-    status: 'active',
-    medications: [
-      {
-        id: 1,
-        name: 'Ibuprofeno',
-        dosage: '400mg',
-        frequency: 'Cada 8 horas',
-        duration: '7 días',
-        instructions: 'Tomar con comida'
-      },
-      {
-        id: 2,
-        name: 'Omeprazol',
-        dosage: '20mg',
-        frequency: 'Una vez al día',
-        duration: '14 días',
-        instructions: 'En ayunas'
+import { format } from 'date-fns';
+import api from './api';
+
+class PrescriptionService {
+  constructor() {
+    this.baseURL = api.baseURL;
+    this.getAuthHeaders = () => {
+      try {
+        return api.getAuthHeaders();
+      } catch (error) {
+        console.error('Error al obtener headers de autenticación:', error);
+        return {};
       }
-    ],
-    notes: 'Control en una semana'
-  },
-  {
-    id: 2,
-    patientId: 3,
-    doctorId: 2,
-    doctorName: 'Dr. Juan Pérez',
-    date: '2025-07-15',
-    diagnosis: 'Hipertensión arterial',
-    status: 'active',
-    medications: [
-      {
-        id: 3,
-        name: 'Losartán',
-        dosage: '50mg',
-        frequency: 'Una vez al día',
-        duration: 'Permanente',
-        instructions: 'Por la mañana'
-      }
-    ],
-    notes: 'Control mensual de presión arterial'
-  },
-  {
-    id: 3,
-    patientId: 3,
-    doctorId: 2,
-    doctorName: 'Dr. Juan Pérez',
-    date: '2025-06-20',
-    diagnosis: 'Gripe estacional',
-    status: 'completed',
-    medications: [
-      {
-        id: 4,
-        name: 'Paracetamol',
-        dosage: '500mg',
-        frequency: 'Cada 6 horas',
-        duration: '5 días',
-        instructions: 'Si hay fiebre'
-      }
-    ],
-    notes: 'Tratamiento completado exitosamente'
-  }
-];
-
-// Función para simular delay de red
-const simulateNetworkDelay = () => {
-  return new Promise(resolve => setTimeout(resolve, 500));
-};
-
-export const prescriptionService = {
-  // Obtener todas las recetas de un paciente
-  getPatientPrescriptions: async (patientId) => {
-    await simulateNetworkDelay();
-    
-    const prescriptions = MOCK_PRESCRIPTIONS.filter(prescription => 
-      prescription.patientId === patientId
-    );
-
-    return {
-      success: true,
-      data: prescriptions
-    };
-  },
-
-  // Obtener recetas activas de un paciente
-  getActivePrescriptions: async (patientId) => {
-    await simulateNetworkDelay();
-    
-    const activePrescriptions = MOCK_PRESCRIPTIONS.filter(prescription => 
-      prescription.patientId === patientId && prescription.status === 'active'
-    );
-
-    return {
-      success: true,
-      data: activePrescriptions
-    };
-  },
-
-  // Obtener detalles de una receta específica
-  getPrescriptionDetails: async (prescriptionId) => {
-    await simulateNetworkDelay();
-    
-    const prescription = MOCK_PRESCRIPTIONS.find(p => p.id === prescriptionId);
-    
-    if (!prescription) {
-      return {
-        success: false,
-        message: 'Receta no encontrada'
-      };
-    }
-
-    return {
-      success: true,
-      data: prescription
-    };
-  },
-
-  // Crear nueva receta (para médicos)
-  createPrescription: async (prescriptionData) => {
-    await simulateNetworkDelay();
-    
-    const newPrescription = {
-      id: MOCK_PRESCRIPTIONS.length + 1,
-      ...prescriptionData,
-      date: new Date().toISOString().split('T')[0],
-      status: 'active'
-    };
-
-    MOCK_PRESCRIPTIONS.push(newPrescription);
-
-    return {
-      success: true,
-      message: 'Receta creada exitosamente',
-      data: newPrescription
-    };
-  },
-
-  // Actualizar receta
-  updatePrescription: async (prescriptionId, prescriptionData) => {
-    await simulateNetworkDelay();
-    
-    const index = MOCK_PRESCRIPTIONS.findIndex(p => p.id === prescriptionId);
-    
-    if (index === -1) {
-      return {
-        success: false,
-        message: 'Receta no encontrada'
-      };
-    }
-
-    MOCK_PRESCRIPTIONS[index] = {
-      ...MOCK_PRESCRIPTIONS[index],
-      ...prescriptionData
-    };
-
-    return {
-      success: true,
-      message: 'Receta actualizada exitosamente',
-      data: MOCK_PRESCRIPTIONS[index]
-    };
-  },
-
-  // Completar receta (marcar como completada)
-  completePrescription: async (prescriptionId) => {
-    await simulateNetworkDelay();
-    
-    const prescription = MOCK_PRESCRIPTIONS.find(p => p.id === prescriptionId);
-    
-    if (!prescription) {
-      return {
-        success: false,
-        message: 'Receta no encontrada'
-      };
-    }
-
-    prescription.status = 'completed';
-
-    return {
-      success: true,
-      message: 'Receta marcada como completada',
-      data: prescription
-    };
-  },
-
-  // Obtener todas las recetas (para admin)
-  getAllPrescriptions: async () => {
-    await simulateNetworkDelay();
-    
-    return {
-      success: true,
-      data: MOCK_PRESCRIPTIONS
-    };
-  },
-
-  // Obtener recetas por médico
-  getPrescriptionsByDoctor: async (doctorId) => {
-    await simulateNetworkDelay();
-    
-    const prescriptions = MOCK_PRESCRIPTIONS.filter(prescription => 
-      prescription.doctorId === doctorId
-    );
-
-    return {
-      success: true,
-      data: prescriptions
-    };
-  },
-
-  // Buscar recetas por criterios
-  searchPrescriptions: async (searchCriteria) => {
-    await simulateNetworkDelay();
-    
-    let results = MOCK_PRESCRIPTIONS;
-
-    if (searchCriteria.patientId) {
-      results = results.filter(p => p.patientId === searchCriteria.patientId);
-    }
-
-    if (searchCriteria.doctorId) {
-      results = results.filter(p => p.doctorId === searchCriteria.doctorId);
-    }
-
-    if (searchCriteria.status) {
-      results = results.filter(p => p.status === searchCriteria.status);
-    }
-
-    if (searchCriteria.dateFrom) {
-      results = results.filter(p => p.date >= searchCriteria.dateFrom);
-    }
-
-    if (searchCriteria.dateTo) {
-      results = results.filter(p => p.date <= searchCriteria.dateTo);
-    }
-
-    return {
-      success: true,
-      data: results
     };
   }
-};
+
+  // Método auxiliar para verificar autenticación
+  async ensureAuthentication() {
+    try {
+      const headers = await this.getAuthHeaders();
+      console.log(`🔑 Headers obtenidos:`, headers);
+      return headers;
+    } catch (error) {
+      console.warn('⚠️ Error al obtener headers de autenticación:', error);
+      return {}; // Devolver un objeto vacío en lugar de lanzar error
+    }
+  }
+
+  async getPrescriptionsByStatus(status = 'all') {
+    try {
+      const headers = this.ensureAuthentication();
+      
+      const response = await fetch(`${this.baseURL}/prescriptions/my-prescriptions?status=${status}`, {
+        headers
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al obtener recetas');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error en getPrescriptionsByStatus:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getDailyMedications(date) {
+    try {
+      const formattedDate = date ? date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      console.log(`📅 Obteniendo medicamentos para la fecha: ${formattedDate}`);
+      
+      const url = `${this.baseURL}/prescriptions/daily-medications?date=${formattedDate}`;
+      console.log(`🔗 URL de solicitud: ${url}`);
+      
+      const headers = await this.ensureAuthentication();
+      
+      // Si no hay token, intentamos una solución alternativa
+      if (!headers.Authorization) {
+        console.log('⏳ Esperando token para obtener medicamentos diarios...');
+        // Retornamos datos vacíos compatibles mientras se carga el token
+        return { success: true, data: [] };
+      }
+      
+      const response = await fetch(url, { headers });
+      
+      if (!response.ok) {
+        throw new Error(`Error al obtener medicamentos diarios: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log(`✅ Medicamentos diarios obtenidos: ${data.data?.length || 0} registros`);
+      return data;
+    } catch (error) {
+      console.error('Error en getDailyMedications:', error);
+      // Devolver un objeto vacío compatible con la interfaz esperada
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  async getDailyMedicationsGrouped(date) {
+    try {
+      const formattedDate = date ? format(date, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0];
+      console.log(`📅 Obteniendo medicamentos agrupados para la fecha: ${formattedDate}`);
+      
+      // Asegúrate de usar la ruta correcta con el prefijo /api
+      const url = `${this.baseURL}/prescriptions/daily-medications-grouped?date=${formattedDate}`;
+      console.log(`🔗 URL de solicitud: ${url}`);
+      
+      const headers = await this.ensureAuthentication();
+      
+      // Si no hay token, intentamos una solución alternativa
+      if (!headers.Authorization) {
+        console.log('⏳ Esperando token para obtener medicamentos agrupados...');
+        return { success: true, data: [] };
+      }
+      
+      const response = await fetch(url, { headers });
+      
+      if (!response.ok) {
+        throw new Error(`Error al obtener medicamentos agrupados: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log(`✅ Medicamentos agrupados obtenidos: ${data.data?.length || 0} registros`);
+      return data;
+    } catch (error) {
+      console.error('Error en getDailyMedicationsGrouped:', error);
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  async getDailyProgress(date) {
+    try {
+      // Formatea la fecha como yyyy-MM-dd
+      const formattedDate = format(date, 'yyyy-MM-dd');
+      
+      // Log para depuración
+      console.log('📤 Solicitando progreso diario para fecha:', formattedDate);
+      
+      const headers = await this.ensureAuthentication();
+      
+      // Verificar si tenemos headers de autenticación
+      if (!headers.Authorization) {
+        console.warn('⚠️ No hay token de autenticación para solicitar progreso diario');
+        return { success: false, error: 'No hay token de autenticación', data: { total: 0, taken: 0, percentage: 0 } };
+      }
+      
+      // Construir URL explícita
+      const url = `${this.baseURL}/prescriptions/daily-progress?date=${formattedDate}`;
+      console.log(`🔗 URL completa: ${url}`);
+      
+      // Realizar solicitud con fetch para más control
+      const response = await fetch(url, { headers });
+      
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
+      }
+      
+      const responseData = await response.json();
+      console.log('📥 Datos de progreso diario recibidos:', JSON.stringify(responseData));
+      
+      return responseData;
+    } catch (error) {
+      console.error('❌ Error en getDailyProgress:', error);
+      return { 
+        success: false, 
+        error: error.message,
+        data: { total: 0, taken: 0, percentage: 0 } 
+      };
+    }
+  }
+
+  async markAsTaken(prescriptionItemId, date, time) {
+    try {
+      const response = await fetch(`${this.baseURL}/prescriptions/mark-taken`, {
+        method: 'POST',
+        headers: {
+          ...this.getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ prescriptionItemId, date, time })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al marcar medicamento como tomado');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error en markAsTaken:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getPatientPrescriptions(patientId) {
+    try {
+      const response = await fetch(`${this.baseURL}/prescriptions/patient/${patientId}`, {
+        headers: this.getAuthHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al obtener recetas del paciente');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error en getPatientPrescriptions:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getActivePrescriptions(patientId) {
+    try {
+      const response = await fetch(`${this.baseURL}/prescriptions/patient/${patientId}/active`, {
+        headers: this.getAuthHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al obtener recetas activas');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error en getActivePrescriptions:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getPrescriptionDetails(prescriptionId) {
+    try {
+      const response = await fetch(`${this.baseURL}/prescriptions/${prescriptionId}`, {
+        headers: this.getAuthHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al obtener detalles de la receta');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error en getPrescriptionDetails:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async createPrescription(prescriptionData) {
+    try {
+      const response = await fetch(`${this.baseURL}/prescriptions`, {
+        method: 'POST',
+        headers: {
+          ...this.getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(prescriptionData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al crear receta');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error en createPrescription:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async updatePrescription(prescriptionId, prescriptionData) {
+    try {
+      const response = await fetch(`${this.baseURL}/prescriptions/${prescriptionId}`, {
+        method: 'PUT',
+        headers: {
+          ...this.getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(prescriptionData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al actualizar receta');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error en updatePrescription:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async completePrescription(prescriptionId) {
+    try {
+      const response = await fetch(`${this.baseURL}/prescriptions/${prescriptionId}/complete`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al completar receta');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error en completePrescription:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  async getAllPrescriptions() {
+    try {
+      const response = await fetch(`${this.baseURL}/prescriptions`, {
+        headers: this.getAuthHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al obtener todas las recetas');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error en getAllPrescriptions:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  async getPrescriptionsByDoctor(doctorId) {
+    try {
+      const response = await fetch(`${this.baseURL}/prescriptions/doctor/${doctorId}`, {
+        headers: this.getAuthHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al obtener recetas por médico');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error en getPrescriptionsByDoctor:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  async searchPrescriptions(searchCriteria) {
+    try {
+      // Construir query string de los criterios de búsqueda
+      const queryParams = new URLSearchParams();
+      for (const [key, value] of Object.entries(searchCriteria)) {
+        if (value) queryParams.append(key, value);
+      }
+      
+      const response = await fetch(`${this.baseURL}/prescriptions/search?${queryParams}`, {
+        headers: this.getAuthHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al buscar recetas');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error en searchPrescriptions:', error);
+      return { success: false, error: error.message };
+    }
+  }
+}
+
+export const prescriptionService = new PrescriptionService();
+export default prescriptionService;

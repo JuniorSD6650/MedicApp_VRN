@@ -1,4 +1,5 @@
 import { authService } from './authService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API Base URL - Ajusta esto según tu configuración
 const API_BASE_URL = __DEV__ 
@@ -11,20 +12,47 @@ class ApiService {
     this.token = null;
   }
 
-  setAuthToken(token) {
-    this.token = token;
+  async setAuthToken(token) {
+    try {
+      this.token = token;
+      if (token) {
+        await AsyncStorage.setItem('token', token);
+        console.log('🔑 Token almacenado en AsyncStorage.');
+      } else {
+        await AsyncStorage.removeItem('token');
+        console.log('🔑 Token eliminado de AsyncStorage.');
+      }
+    } catch (error) {
+      console.error('Error al guardar el token en AsyncStorage:', error);
+    }
   }
 
-  getAuthHeaders() {
-    const headers = {
-      'Content-Type': 'application/json',
-    };
-    
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
+  async getToken() {
+    try {
+      const token = this.token || (await AsyncStorage.getItem('token'));
+      console.log(`🔑 Token recuperado: ${token ? token.substring(0, 10) + '...' : 'No disponible'}`);
+      return token;
+    } catch (error) {
+      console.error('Error al obtener el token de AsyncStorage:', error);
+      return null;
     }
-    
-    return headers;
+  }
+
+  async getAuthHeaders() {
+    try {
+      const token = await this.getToken();
+      console.log(`🔑 Obteniendo headers de autenticación. Token existente: ${!!token}`);
+      if (!token) {
+        console.warn('⚠️ No hay token disponible para la solicitud');
+        return {};
+      }
+      return {
+        Authorization: `Bearer ${token}`,
+      };
+    } catch (error) {
+      console.error('Error al obtener headers de autenticación:', error);
+      return {};
+    }
   }
 
   // Auth endpoints (usando servicios mockeados)

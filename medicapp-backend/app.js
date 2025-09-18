@@ -29,7 +29,7 @@ app.use('/api/upload', uploadRoutes);
 app.get('/api/health', (req, res) => {
   const networkInterfaces = require('os').networkInterfaces();
   const addresses = [];
-  
+
   // Obtener todas las direcciones IP del servidor
   Object.keys(networkInterfaces).forEach(interfaceName => {
     networkInterfaces[interfaceName].forEach(interface => {
@@ -39,9 +39,9 @@ app.get('/api/health', (req, res) => {
       }
     });
   });
-  
-  res.json({ 
-    status: 'OK', 
+
+  res.json({
+    status: 'OK',
     message: 'MedicApp Backend funcionando correctamente',
     timestamp: new Date().toISOString(),
     serverIp: addresses,
@@ -53,16 +53,16 @@ app.get('/api/health', (req, res) => {
 // Ruta para verificar autenticación
 app.get('/api/check-auth', (req, res) => {
   const authHeader = req.headers.authorization;
-  
+
   if (!authHeader) {
-    return res.status(401).json({ 
-      authenticated: false, 
-      message: 'No se proporcionó token de autenticación' 
+    return res.status(401).json({
+      authenticated: false,
+      message: 'No se proporcionó token de autenticación'
     });
   }
-  
-  res.json({ 
-    authenticated: true, 
+
+  res.json({
+    authenticated: true,
     message: 'Token de autenticación recibido',
     token: authHeader.split(' ')[1]?.substring(0, 10) + '...' // Mostrar solo primeros 10 caracteres por seguridad
   });
@@ -73,49 +73,49 @@ const initializeApp = async () => {
   try {
     console.log('Iniciando MedicApp Backend...');
     logger.info('Iniciando MedicApp Backend...');
-    
+
     // Crear directorio de uploads si no existe
     const fs = require('fs');
     const path = require('path');
     const uploadsDir = path.join(__dirname, 'uploads');
-    
+
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
       logger.info('Directorio uploads creado');
     } else {
       logger.info('Directorio uploads ya existe');
     }
-    
+
     // Crear base de datos si no existe
     await createDatabaseIfNotExists();
-    
+
     // Verificar que sequelize esté definido
     if (!sequelize) {
       throw new Error('Sequelize no está definido correctamente');
     }
-    
+
     // Importar modelos después de que la base de datos exista
     require('./models');
-    
+
     // Sincronizar modelos
     await sequelize.sync({ force: false });
     console.log('Base de datos sincronizada');
     logger.info('Base de datos sincronizada correctamente');
-    
+
     // Iniciar servidor en todas las interfaces de red (0.0.0.0)
     const PORT = process.env.PORT || 4000;
     const HOST = process.env.HOST || '0.0.0.0';
-    
+
     app.listen(PORT, HOST, () => {
       console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
       console.log('🚀 MedicApp Backend iniciado correctamente');
       logger.info(`Servidor corriendo en http://${HOST}:${PORT}`);
       logger.info('🚀 MedicApp Backend iniciado correctamente');
-      
+
       // Mostrar las IPs del servidor para facilitar la conexión desde dispositivos móviles
       const networkInterfaces = require('os').networkInterfaces();
       console.log('\n📱 Direcciones para conectar desde dispositivos móviles:');
-      
+
       Object.keys(networkInterfaces).forEach(interfaceName => {
         networkInterfaces[interfaceName].forEach(interface => {
           if (interface.family === 'IPv4' && !interface.internal) {
@@ -123,18 +123,18 @@ const initializeApp = async () => {
           }
         });
       });
-      
+
       console.log('\n📋 Rutas disponibles:');
-      
+
       // Rutas de salud y prueba
       console.log('\n🔍 Diagnóstico:');
       console.log('  - GET  /api/health                         # Verificar estado del servidor');
-      
+
       // Rutas de autenticación
       console.log('\n🔐 Autenticación:');
       console.log('  - POST /api/auth/register                  # Registrar nuevo usuario');
       console.log('  - POST /api/auth/login                     # Iniciar sesión');
-      console.log('  - POST /api/auth/me                        # Obtener información del usuario');
+      console.log('  - POST /api/auth/me                     # Iniciar sesión');
 
       // Rutas de prescripciones (CRUD completo)
       console.log('\n💊 Prescripciones (Recetas):');

@@ -1,93 +1,44 @@
 const express = require('express');
-const { 
-  // Funciones existentes
-  getMyPrescriptions, 
-  markMedicationTaken, 
-  getMedicationHistory,
-  getPendingMedications,
-  getPatientStats,
-  getPrescriptionsAndMarkTaken,
-  
-  // Nuevas funciones CRUD para Prescription
-  createPrescription,
-  getPrescriptionById,
-  updatePrescription,
-  deletePrescription,
-  
-  // Nuevas funciones CRUD para PrescriptionItem
-  createPrescriptionItem,
-  updatePrescriptionItem,
-  deletePrescriptionItem
-} = require('../controllers/prescription.controller');
-
-// Importar el middleware de autenticación real
-const { verifyToken } = require('../middleware/auth');
-
 const router = express.Router();
+const { authenticateToken } = require('../middleware/auth.middleware');
+const PrescriptionService = require('../services/prescription.service');
+const medicationIntakeController = require('../controllers/medicationIntake.controller');
+const logger = require('../utils/logger');
 
-// Middleware de autenticación mejorado
-const authenticateToken = (req, res, next) => {
-  // Si ya hay información de usuario (de un token JWT), usarla
-  if (req.user && req.user.id) {
-    console.log('Usando información de usuario del token JWT:', req.user.rol);
-    return next();
+router.use(authenticateToken);
+
+// Rutas para obtener recetas por estado
+router.get('/my-prescriptions', async (req, res) => {
+  try {
+    const { status = 'all' } = req.query; // 'all', 'active', 'completed'
+    const userId = req.user.id;
+    
+    logger.info(`Usuario ${userId} solicitando recetas con estado ${status}`);
+
+    const prescriptions = await PrescriptionService.getPrescriptionsByStatus(userId, status);
+    res.json({ success: true, data: prescriptions });
+  } catch (error) {
+    logger.error(`Error al obtener recetas: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
   }
-  
-  // Si no hay info de usuario, usar valores por defecto
-  console.warn('Usando middleware de autenticación provisional');
-  req.user = {
-    id: 1,
-    dni: '12345678',
-    nombre: 'Usuario de Prueba',
-    rol: 'medico' // Cambiado de 'profesional' a 'medico'
-  };
-  
-  next();
-};
+});
 
-// Aplicar autenticación a todas las rutas usando el middleware real
-router.use(verifyToken);
+// Ruta para obtener todas las recetas de un paciente
+router.get('/all-prescriptions', async (req, res) => {
+  try {
+    const userId = req.user.id;
 
-// CRUD para Prescriptions
-// CREATE - Crear una nueva receta médica
-router.post('/', createPrescription);
+    const prescriptions = await PrescriptionService.getAllPrescriptionsByPatient(userId);
+    res.json({ success: true, data: prescriptions });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
-// READ - Obtener recetas del paciente autenticado
-router.get('/my-prescriptions', getMyPrescriptions);
-
-// READ - Obtener una receta específica por ID
-router.get('/:id', getPrescriptionById);
-
-// UPDATE - Actualizar una receta existente
-router.put('/:id', updatePrescription);
-
-// DELETE - Eliminar una receta
-router.delete('/:id', deletePrescription);
-
-// CRUD para PrescriptionItem
-// CREATE - Crear un nuevo item de receta
-router.post('/items', createPrescriptionItem);
-
-// UPDATE - Actualizar un item de receta
-router.put('/items/:id', updatePrescriptionItem);
-
-// DELETE - Eliminar un item de receta
-router.delete('/items/:id', deletePrescriptionItem);
-
-// Otras rutas específicas
-// Marcar medicamento como tomado (alternativa a updatePrescriptionItem)
-router.post('/mark-taken', markMedicationTaken);
-
-// Obtener historial de medicamentos para un paciente (para profesionales)
-router.get('/history/:patientId', getMedicationHistory);
-
-// Obtener medicamentos pendientes
-router.get('/pending', getPendingMedications);
-
-// Obtener estadísticas del paciente
-router.get('/stats', getPatientStats);
-
-// Obtener recetas y marcar medicamentos como tomados
-router.get('/prescriptions-mark-taken', getPrescriptionsAndMarkTaken);
+// Ruta para obtener progreso diario de medicamentos
+router.get('/daily-progress', (req, res) => {
+  // Llamamos directamente al controlador de tomas que ya tiene la lógica implementada
+  return medicationIntakeController.getMyDailyProgress(req, res);
+});
 
 module.exports = router;

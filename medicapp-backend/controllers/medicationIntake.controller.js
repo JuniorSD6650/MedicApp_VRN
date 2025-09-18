@@ -1,5 +1,6 @@
-const { MedicationIntake, PrescriptionItem, Prescription, Patient, Medication, Professional } = require('../models');
+const { MedicationIntake, PrescriptionItem, Prescription, Patient, Medication, Professional, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const logger = require('../utils/logger');
 
 // Obtener las tomas pendientes para el paciente autenticado
 const getMyPendingIntakes = async (req, res) => {
@@ -358,9 +359,333 @@ const getPatientIntakeHistory = async (req, res) => {
   }
 };
 
+// Nueva función - Obtener medicamentos del día actual
+const getMyDailyMedications = async (req, res) => {
+  try {
+    // Buscar paciente asociado al usuario
+    const patient = await Patient.findOne({
+      where: { dni: req.user.dni }
+    });
+
+    if (!patient) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No se encontró información de paciente asociada a este usuario' 
+      });
+    }
+
+    const date = req.query.date || new Date().toISOString().split('T')[0];
+    logger.info(`Obteniendo medicamentos diarios para usuario ${patient.id} en fecha ${date}`);
+
+    const formattedDate = new Date(date);
+    const dateStr = formattedDate.toISOString().split('T')[0];
+    
+    logger.debug(`Fecha normalizada: ${dateStr}`, 'MedicationIntakeController');
+
+    const intakes = await MedicationIntake.findAll({
+      include: [
+        {
+          model: PrescriptionItem,
+          as: 'prescription_item',
+          required: true,
+          include: [
+            {
+              model: Prescription,
+              as: 'receta',
+              required: true,
+              where: { paciente_id: patient.id }
+            },
+            {
+              model: Medication,
+              as: 'medicamento',
+              required: true
+            }
+          ]
+        }
+      ],
+      where: sequelize.where(
+        sequelize.fn('DATE', sequelize.col('MedicationIntake.scheduled_time')),
+        dateStr
+      ),
+      order: [['scheduled_time', 'ASC']]
+    });
+
+    logger.info(`Se encontraron ${intakes.length} tomas de medicamento para la fecha ${dateStr}`);
+    
+    res.json({
+      success: true,
+      data: intakes
+    });
+  } catch (error) {
+    logger.error(`Error obteniendo medicamentos diarios: ${error.message}`);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al obtener medicamentos diarios',
+      error: error.message
+    });
+  }
+};
+
+// Nueva función - Obtener progreso diario de medicamentos
+const getMyDailyProgress = async (req, res) => {
+  try {
+    // Buscar paciente asociado al usuario
+    const patient = await Patient.findOne({
+      where: { dni: req.user.dni }
+    });
+
+    if (!patient) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No se encontró información de paciente asociada a este usuario' 
+      });
+    }
+
+    const date = req.query.date || new Date().toISOString().split('T')[0];
+    logger.startOperation('getDailyProgress', { patientId: patient.id, date }, 'MedicationIntakeController');
+
+    const formattedDate = new Date(date);
+    const dateStr = formattedDate.toISOString().split('T')[0];
+
+    logger.info(`Fecha normalizada para búsqueda: ${dateStr}`, 'MedicationIntakeController');
+
+    // Buscar todas las tomas (MedicationIntake) asociadas al paciente y la fecha
+    const intakes = await MedicationIntake.findAll({
+      include: [
+        {
+          model: PrescriptionItem,
+          as: 'prescription_item',
+          required: true,
+          include: [
+            {
+              model: Prescription,
+              as: 'receta',
+              required: true,
+              where: { paciente_id: patient.id }
+            },
+            {
+              model: Medication,
+              as: 'medicamento',
+              required: true
+            }
+          ]
+        }
+      ],
+      where: sequelize.where(
+        sequelize.fn('DATE', sequelize.col('MedicationIntake.scheduled_time')),
+        dateStr
+      ),
+      order: [['scheduled_time', 'ASC']]
+    });
+
+    logger.info(`Búsqueda completada. Total de tomas encontradas: ${intakes.length}`, 'MedicationIntakeController');
+
+    if (intakes.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          date: dateStr,
+          total: 0,
+          taken: 0,
+          pending: 0,
+          percentage: 0,
+          intakes: []
+        }
+      });
+    }
+
+    // Transformar las tomas para incluir detalles del medicamento
+    const detailedIntakes = intakes.map(intake => ({
+      id: intake.id,
+      scheduled_time: intake.scheduled_time,
+      taken: intake.taken,
+      taken_time: intake.taken_time,
+      notes: intake.notes,
+      medication: {
+        id: intake.prescription_item.medicamento.id,
+        name: intake.prescription_item.medicamento.descripcion,
+        dosage: intake.prescription_item.cantidad_solicitada
+      }
+    }));
+
+    // Calcular totales
+    const total = detailedIntakes.length;
+    const taken = detailedIntakes.filter(intake => intake.taken).length;
+    const pending = total - taken;
+    const percentage = total > 0 ? Math.round((taken / total) * 100) : 0;
+
+    logger.summary('Progreso diario calculado', { total, taken, pending, percentage });
+
+    res.json({
+      success: true,
+      data: {
+        date: dateStr,
+        total,
+        taken,
+        pending,
+        percentage,
+        intakes: detailedIntakes
+      }
+    });
+  } catch (error) {
+    logger.error(`Error al obtener progreso diario: ${error.message}`);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al obtener progreso diario',
+      error: error.message
+    });
+  }
+};
+
+// Nueva función - Obtener medicamentos diarios agrupados
+const getMyDailyMedicationsGrouped = async (req, res) => {
+  try {
+    // Buscar paciente asociado al usuario
+    const patient = await Patient.findOne({
+      where: { dni: req.user.dni }
+    });
+
+    if (!patient) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No se encontró información de paciente asociada a este usuario' 
+      });
+    }
+
+    const date = req.query.date || new Date().toISOString().split('T')[0];
+    logger.info(`Obteniendo medicamentos diarios agrupados para usuario ${patient.id} en fecha ${date}`);
+
+    // Reutilizar la función para obtener medicamentos diarios
+    const intakes = await MedicationIntake.findAll({
+      include: [
+        {
+          model: PrescriptionItem,
+          as: 'prescription_item',
+          required: true,
+          include: [
+            {
+              model: Prescription,
+              as: 'receta',
+              required: true,
+              where: { paciente_id: patient.id }
+            },
+            {
+              model: Medication,
+              as: 'medicamento',
+              required: true
+            }
+          ]
+        }
+      ],
+      where: sequelize.where(
+        sequelize.fn('DATE', sequelize.col('MedicationIntake.scheduled_time')),
+        new Date(date).toISOString().split('T')[0]
+      ),
+      order: [['scheduled_time', 'ASC']]
+    });
+
+    const medicationMap = new Map();
+
+    intakes.forEach(intake => {
+      if (!intake.prescription_item || !intake.prescription_item.medicamento) return;
+
+      const medication = intake.prescription_item.medicamento;
+      const prescriptionItem = intake.prescription_item;
+
+      if (!medicationMap.has(medication.id)) {
+        medicationMap.set(medication.id, {
+          id: medication.id,
+          name: medication.descripcion,
+          description: medication.unidad,
+          dosage: prescriptionItem.cantidad_solicitada,
+          frequency: prescriptionItem.dx_codigo,
+          instructions: prescriptionItem.dx_descripcion,
+          times: [],
+          dateTaken: []
+        });
+      }
+
+      const medicationEntry = medicationMap.get(medication.id);
+
+      const schedTime = new Date(intake.scheduled_time);
+      const timeStr = `${String(schedTime.getHours()).padStart(2, '0')}:${String(schedTime.getMinutes()).padStart(2, '0')}`;
+
+      medicationEntry.times.push(timeStr);
+
+      if (intake.taken) {
+        medicationEntry.dateTaken.push(timeStr);
+      }
+    });
+
+    res.json({
+      success: true,
+      data: Array.from(medicationMap.values())
+    });
+  } catch (error) {
+    logger.error(`Error obteniendo medicamentos diarios agrupados: ${error.message}`);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al obtener medicamentos diarios agrupados',
+      error: error.message
+    });
+  }
+};
+
+// Función de diagnóstico
+const runDiagnostic = async (req, res) => {
+  try {
+    logger.info('Ejecutando búsqueda de diagnóstico...', 'MedicationIntakeController');
+    
+    // 1. Verificar si hay tomas en la tabla
+    const totalIntakes = await MedicationIntake.count();
+    logger.info(`Total de tomas en la base de datos: ${totalIntakes}`, 'MedicationIntakeController');
+    
+    // 2. Verificar si hay recetas
+    const totalPrescriptions = await Prescription.count();
+    logger.info(`Total de recetas en la base de datos: ${totalPrescriptions}`, 'MedicationIntakeController');
+    
+    // 3. Verificar fechas disponibles
+    if (totalIntakes > 0) {
+      const availableDates = await sequelize.query(
+        'SELECT DISTINCT DATE(scheduled_time) as date FROM medication_intakes ORDER BY date',
+        { type: sequelize.QueryTypes.SELECT }
+      );
+      logger.info(`Fechas disponibles en la base de datos: ${JSON.stringify(availableDates)}`, 'MedicationIntakeController');
+    }
+    
+    // 4. Verificar pacientes con recetas
+    const patientsWithPrescriptions = await sequelize.query(
+      'SELECT DISTINCT paciente_id FROM prescriptions',
+      { type: sequelize.QueryTypes.SELECT }
+    );
+    logger.info(`Pacientes con recetas: ${JSON.stringify(patientsWithPrescriptions)}`, 'MedicationIntakeController');
+    
+    res.json({
+      success: true,
+      message: 'Diagnóstico completado',
+      data: {
+        totalIntakes,
+        totalPrescriptions,
+        patientsInfo: patientsWithPrescriptions
+      }
+    });
+  } catch (error) {
+    logger.error(`Error en diagnóstico: ${error.message}`, 'MedicationIntakeController');
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al ejecutar diagnóstico',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getMyPendingIntakes,
   getMyIntakeHistory,
   markIntakeAsTaken,
-  getPatientIntakeHistory
+  getPatientIntakeHistory,
+  getMyDailyMedications,
+  getMyDailyProgress,
+  getMyDailyMedicationsGrouped,
+  runDiagnostic
 };

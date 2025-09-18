@@ -1,27 +1,25 @@
 const express = require('express');
-const { 
-  getMyPendingIntakes,
-  getMyIntakeHistory,
-  markIntakeAsTaken,
-  getPatientIntakeHistory
-} = require('../controllers/medicationIntake.controller');
-const { verifyToken, requireMedico } = require('../middleware/auth');
-
 const router = express.Router();
+const { authenticateToken } = require('../middleware/auth.middleware');
+const medicationIntakeController = require('../controllers/medicationIntake.controller');
 
-// Aplicar autenticación a todas las rutas
-router.use(verifyToken);
+// Todas las rutas requieren autenticación
+router.use(authenticateToken);
 
-// Rutas para pacientes - ver mis tomas pendientes
-router.get('/pending', getMyPendingIntakes);
+// Rutas originales
+router.get('/pending', medicationIntakeController.getMyPendingIntakes);
+router.get('/history', medicationIntakeController.getMyIntakeHistory);
+router.put('/:intakeId/taken', medicationIntakeController.markIntakeAsTaken);
 
-// Ruta para ver todo mi historial de tomas
-router.get('/history', getMyIntakeHistory);
+// Rutas para médicos
+router.get('/patient/:patientId', medicationIntakeController.getPatientIntakeHistory);
 
-// Marcar una toma como realizada
-router.patch('/:intakeId/take', markIntakeAsTaken);
+// Nuevas rutas trasladadas desde prescription.routes.js
+router.get('/daily', medicationIntakeController.getMyDailyMedications);
+router.get('/daily-progress', medicationIntakeController.getMyDailyProgress);
+router.get('/daily-grouped', medicationIntakeController.getMyDailyMedicationsGrouped);
 
-// Rutas para médicos - ver tomas de un paciente específico
-router.get('/patient/:patientId', requireMedico, getPatientIntakeHistory);
+// Ruta de diagnóstico
+router.get('/diagnostic', medicationIntakeController.runDiagnostic);
 
 module.exports = router;

@@ -13,6 +13,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '../context/AuthContext';
 import { medicationService } from '../services/medicationService';
+import { prescriptionService } from '../services/prescriptionService';
 import { format, addDays, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import api from '../services/api';
@@ -31,6 +32,7 @@ const PatientDashboard = ({ navigation }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [dailyProgress, setDailyProgress] = useState({ total: 0, taken: 0, percentage: 0 });
 
   // Depuración inicial
   useEffect(() => {
@@ -94,25 +96,114 @@ const PatientDashboard = ({ navigation }) => {
   const isWeb = Platform.OS === 'web';
 
   const loadMedications = async () => {
-    // Solo intentar cargar medicamentos si hay un ID de usuario
     if (!user?.id) {
       setTodayMedications([]);
+      setDailyProgress({ total: 0, taken: 0, percentage: 0 });
       setLoading(false);
       setRefreshing(false);
       return;
     }
-    
+
     try {
-      const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      const response = await medicationService.getMedicationsByDate(user.id, dateStr);
+      // Formatear fecha para la API
+      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+      console.log('📅 Fecha seleccionada para la API:', formattedDate);
       
-      if (response.success) {
-        setTodayMedications(response.data);
+      // Log del token de autenticación
+      console.log('🔑 Token para la solicitud:', token ? `${token.substring(0, 20)}...` : 'No hay token');
+      
+      // Obtener progreso diario
+      console.log('🔄 Solicitando progreso diario...');
+      const progressResponse = await prescriptionService.getDailyProgress(selectedDate);
+      
+      console.log('📊 Respuesta completa de progreso diario:', JSON.stringify(progressResponse));
+      
+      if (progressResponse.success && progressResponse.data) {
+        const { total = 0, taken = 0, pending = 0, percentage = 0, date, intakes = [] } = progressResponse.data;
+        console.log('✅ Datos de progreso procesados:', { total, taken, pending, percentage, date, formattedDate });
+        
+        // Verificar si hay discrepancia entre fechas
+        if (date && date !== formattedDate) {
+          console.warn('⚠️ La fecha devuelta por el servidor no coincide con la solicitada:', 
+            { solicitada: formattedDate, recibida: date });
+        }
+        
+        setDailyProgress({ total, taken, pending, percentage });
+        
+        // Agrupar intakes por ID de medicamento
+        const groupedMedications = [];
+        const medicationMap = new Map();
+        
+        // Agrupar por ID de medicamento
+        intakes.forEach(intake => {
+          const medId = intake.medication.id;
+          
+          if (!medicationMap.has(medId)) {
+            medicationMap.set(medId, {
+              id: medId,
+              name: intake.medication.name,
+              dosage: intake.medication.dosage,
+              intakes: []
+            });
+          }
+          
+          medicationMap.get(medId).intakes.push(intake);
+        });
+        
+        // Convertir el mapa a un array y formatear para el componente
+        medicationMap.forEach((medData) => {
+          const times = [];
+          const dateTaken = [];
+          
+          // Procesar cada intake para obtener los tiempos
+          medData.intakes.forEach(intake => {
+            const schedTime = new Date(intake.scheduled_time);
+            const timeStr = format(schedTime, 'HH:mm');
+            
+            times.push(timeStr);
+            
+            if (intake.taken) {
+              dateTaken.push(timeStr);
+            }
+          });
+          
+          // Agregar el medicamento al array con los tiempos procesados
+          groupedMedications.push({
+            id: medData.id,
+            name: medData.name,
+            dosage: `${medData.dosage} unidades`,
+            times,
+            dateTaken,
+            // Usar las notas del primer intake como frecuencia e instrucciones
+            frequency: medData.intakes.length > 0 ? `${medData.intakes.length} veces al día` : '',
+            instructions: medData.intakes.length > 0 ? medData.intakes[0].notes : '',
+            // Guardar los intakes originales por si se necesitan
+            _intakes: medData.intakes
+          });
+        });
+        
+        setTodayMedications(groupedMedications);
       } else {
+        console.warn('⚠️ No se pudo obtener el progreso diario:', progressResponse.error);
+        setDailyProgress({ total: 0, taken: 0, pending: 0, percentage: 0 });
         setTodayMedications([]);
       }
     } catch (error) {
-      console.error('Error loading medications:', error);
+      console.error('❌ Error al cargar los datos:', error);
+      // Agregar más detalles del error
+      if (error.response) {
+        console.error('❌ Respuesta del servidor:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+      } else if (error.request) {
+        console.error('❌ No se recibió respuesta del servidor');
+      } else {
+        console.error('❌ Error al configurar la solicitud:', error.message);
+      }
+      
+      Alert.alert('Error', 'No se pudieron cargar los datos');
+      setDailyProgress({ total: 0, taken: 0, percentage: 0 });
       setTodayMedications([]);
     } finally {
       setLoading(false);
@@ -170,13 +261,35 @@ const PatientDashboard = ({ navigation }) => {
   };
 
   const getCompletionStats = () => {
-    const totalDoses = todayMedications.reduce((acc, med) => acc + med.times.length, 0);
-    const takenDoses = todayMedications.reduce((acc, med) => acc + (med.dateTaken?.length || 0), 0);
+    // Asegurarse de que todayMedications es un array
+    if (!Array.isArray(todayMedications)) {
+      return { totalDoses: 0, takenDoses: 0 };
+    }
+    
+    const totalDoses = todayMedications.reduce((acc, med) => 
+      acc + (Array.isArray(med.times) ? med.times.length : 0), 0);
+    
+    const takenDoses = todayMedications.reduce((acc, med) => 
+      acc + (Array.isArray(med.dateTaken) ? med.dateTaken.length : 0), 0);
+    
     return { totalDoses, takenDoses };
   };
 
   const { totalDoses, takenDoses } = getCompletionStats();
   const completionPercentage = totalDoses > 0 ? Math.round((takenDoses / totalDoses) * 100) : 0;
+
+  useEffect(() => {
+    const initializeToken = async () => {
+      if (token) {
+        console.log('🔑 Estableciendo token en ApiService.');
+        await api.setAuthToken(token);
+      } else {
+        console.warn('⚠️ No se encontró token en el contexto de autenticación.');
+      }
+    };
+
+    initializeToken();
+  }, [token]);
 
   if (loading) {
     return (
@@ -220,14 +333,12 @@ const PatientDashboard = ({ navigation }) => {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View>
-            <Text style={styles.greeting}>
-              ¡Hola, {userName}!
-            </Text>
+            <Text style={styles.greeting}>¡Hola, {userName}!</Text>
             <Text style={styles.subGreeting}>¿Cómo te sientes hoy?</Text>
           </View>
           <View style={styles.headerButtons}>
-            <TouchableOpacity 
-              style={styles.profileButton} 
+            <TouchableOpacity
+              style={styles.profileButton}
               onPress={() => navigation.navigate('Profile')}
             >
               <Text style={styles.profileButtonText}>👤</Text>
@@ -238,16 +349,12 @@ const PatientDashboard = ({ navigation }) => {
           </View>
         </View>
       </View>
-      
+
       {/* Contenido principal */}
       <ScrollView
         style={styles.content}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#2E86AB"
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2E86AB" />
         }
       >
         {/* Navegador de fechas */}
@@ -255,7 +362,6 @@ const PatientDashboard = ({ navigation }) => {
           <TouchableOpacity style={styles.dateButton} onPress={() => navigateDate('prev')}>
             <Text style={styles.dateButtonText}>◀</Text>
           </TouchableOpacity>
-          
           <View style={styles.dateDisplay}>
             <Text style={styles.dateText}>{format(selectedDate, 'EEEE, d MMMM', { locale: es })}</Text>
             {!isToday && (
@@ -264,29 +370,39 @@ const PatientDashboard = ({ navigation }) => {
               </TouchableOpacity>
             )}
           </View>
-          
           <TouchableOpacity style={styles.dateButton} onPress={() => navigateDate('next')}>
             <Text style={styles.dateButtonText}>▶</Text>
           </TouchableOpacity>
         </View>
-        
+
         {/* Tarjeta de progreso */}
         <View style={styles.progressCard}>
           <Text style={styles.progressTitle}>Tu progreso hoy</Text>
-          
           <View style={styles.progressStats}>
             <View style={styles.progressCircle}>
-              <Text style={styles.progressPercentage}>{completionPercentage}%</Text>
+              <Text style={styles.progressPercentage}>{dailyProgress.percentage || 0}%</Text>
             </View>
-            
             <View style={styles.progressDetails}>
               <Text style={styles.progressDetail}>
-                Medicamentos tomados: {takenDoses}
+                Pendientes: <Text style={styles.progressValue}>{dailyProgress.pending || 0}</Text>
               </Text>
               <Text style={styles.progressDetail}>
-                Total de dosis: {totalDoses}
+                Medicamentos tomados: <Text style={styles.progressValue}>{dailyProgress.taken || 0}</Text>
+              </Text>
+              <Text style={styles.progressDetail}>
+                Total de dosis: <Text style={styles.progressValue}>{dailyProgress.total || 0}</Text>
               </Text>
             </View>
+          </View>
+          
+          {/* Barra de progreso visual */}
+          <View style={styles.progressBarContainer}>
+            <View 
+              style={[
+                styles.progressBar, 
+                { width: `${dailyProgress.percentage || 0}%` }
+              ]} 
+            />
           </View>
         </View>
         
@@ -294,7 +410,7 @@ const PatientDashboard = ({ navigation }) => {
         <View style={styles.medicationsSection}>
           <Text style={styles.sectionTitle}>Medicamentos</Text>
           
-          {todayMedications.length === 0 ? (
+          {(!todayMedications || todayMedications.length === 0) ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyEmoji}>💊</Text>
               <Text style={styles.emptyTitle}>Sin medicamentos para hoy</Text>
@@ -303,13 +419,15 @@ const PatientDashboard = ({ navigation }) => {
               </Text>
             </View>
           ) : (
-            todayMedications.map(medication => (
-              <MedicationCard 
-                key={medication.id} 
-                medication={medication} 
-                onToggle={handleMedicationToggle}
-              />
-            ))
+            todayMedications.map((medication) => {
+              return (
+                <MedicationCard
+                  key={medication.id}
+                  medication={medication}
+                  onToggle={handleMedicationToggle}
+                />
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -319,23 +437,39 @@ const PatientDashboard = ({ navigation }) => {
 
 // Componente para cada medicamento
 const MedicationCard = ({ medication, onToggle }) => {
+  // Verificación de seguridad para medication
+  if (!medication) {
+    return null;
+  }
+  
   const takenTimes = medication.dateTaken || [];
+  const times = medication.times || [];
+  
+  // Calcular progreso de este medicamento
+  const totalDoses = times.length;
+  const takenDoses = takenTimes.length;
+  const medicationProgress = totalDoses > 0 ? Math.round((takenDoses / totalDoses) * 100) : 0;
   
   return (
     <View style={styles.medicationCard}>
       <View style={styles.medicationHeader}>
-        <Text style={styles.medicationName}>{medication.name}</Text>
-        <Text style={styles.medicationDosage}>{medication.dosage}</Text>
+        <Text style={styles.medicationName}>{medication.name || 'Sin nombre'}</Text>
+        <Text style={styles.medicationDosage}>{medication.dosage || ''}</Text>
       </View>
       
-      <Text style={styles.medicationFrequency}>{medication.frequency}</Text>
+      <View style={styles.medicationProgressRow}>
+        <Text style={styles.medicationFrequency}>{medication.frequency || ''}</Text>
+        <Text style={styles.medicationProgress}>
+          {takenDoses}/{totalDoses} ({medicationProgress}%)
+        </Text>
+      </View>
       
       {medication.instructions && (
         <Text style={styles.medicationInstructions}>📝 {medication.instructions}</Text>
       )}
 
       <View style={styles.medicationTimes}>
-        {medication.times.map(time => {
+        {times.map(time => {
           const isTaken = takenTimes.includes(time);
           return (
             <TouchableOpacity
@@ -510,6 +644,22 @@ const styles = StyleSheet.create({
     color: '#495057',
     marginBottom: 4,
   },
+  progressValue: {
+    fontWeight: 'bold',
+    color: '#2E86AB',
+  },
+  progressBarContainer: {
+    height: 10,
+    backgroundColor: '#E9ECEF',
+    borderRadius: 5,
+    marginTop: 16,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#2E86AB',
+    borderRadius: 5,
+  },
   medicationsSection: {
     marginBottom: 20,
   },
@@ -618,6 +768,17 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontSize: 12,
     color: '#28A745',
+  },
+  medicationProgressRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  medicationProgress: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2E86AB',
   },
 });
 

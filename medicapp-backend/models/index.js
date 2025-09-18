@@ -14,23 +14,14 @@ logger.info('Iniciando configuración de asociaciones entre modelos', 'Models');
 Prescription.belongsTo(Patient, { foreignKey: 'paciente_id', as: 'paciente' });
 Prescription.belongsTo(Professional, { foreignKey: 'profesional_id', as: 'profesional' });
 
-PrescriptionItem.belongsTo(Prescription, { foreignKey: 'receta_id', as: 'receta' });
-PrescriptionItem.belongsTo(Medication, { foreignKey: 'medicamento_id', as: 'medicamento' });
+PrescriptionItem.belongsTo(Prescription, { as: 'receta', foreignKey: 'receta_id' });
+Prescription.hasMany(PrescriptionItem, { as: 'items', foreignKey: 'receta_id' });
 
-Prescription.hasMany(PrescriptionItem, { foreignKey: 'receta_id', as: 'items' });
-Patient.hasMany(Prescription, { foreignKey: 'paciente_id', as: 'prescriptions' });
-Professional.hasMany(Prescription, { foreignKey: 'profesional_id', as: 'prescriptions' });
-Medication.hasMany(PrescriptionItem, { foreignKey: 'medicamento_id', as: 'prescriptionItems' });
+PrescriptionItem.belongsTo(Medication, { as: 'medicamento', foreignKey: 'medicamento_id' });
+Medication.hasMany(PrescriptionItem, { foreignKey: 'medicamento_id' });
 
-// Relación entre PrescriptionItem y MedicationIntake
-PrescriptionItem.hasMany(MedicationIntake, { 
-  foreignKey: 'prescription_item_id', 
-  as: 'intakes' 
-});
-MedicationIntake.belongsTo(PrescriptionItem, { 
-  foreignKey: 'prescription_item_id', 
-  as: 'prescription_item' 
-});
+MedicationIntake.belongsTo(PrescriptionItem, { as: 'prescription_item', foreignKey: 'prescription_item_id' });
+PrescriptionItem.hasMany(MedicationIntake, { as: 'intakes', foreignKey: 'prescription_item_id' });
 
 logger.info('Asociaciones entre modelos configuradas correctamente', 'Models');
 

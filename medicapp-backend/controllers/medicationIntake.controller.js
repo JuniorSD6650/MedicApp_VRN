@@ -245,6 +245,91 @@ const markIntakeAsTaken = async (req, res) => {
   }
 };
 
+// Toggle (marcar/desmarcar) una toma como realizada
+const toggleIntakeTaken = async (req, res) => {
+  try {
+    const { intakeId } = req.params;
+    logger.info(`Recibida solicitud para toggle de toma ID=${intakeId}`, 'MedicationIntakeController');
+    
+    // Buscar la toma
+    const intake = await MedicationIntake.findByPk(intakeId, {
+      include: [
+        {
+          model: PrescriptionItem,
+          as: 'prescription_item',
+          include: [
+            {
+              model: Prescription,
+              as: 'receta'
+            }
+          ]
+        }
+      ]
+    });
+    
+    if (!intake) {
+      logger.warn(`Toma no encontrada: ID=${intakeId}`, 'MedicationIntakeController');
+      return res.status(404).json({ 
+        success: false, 
+        message: `Toma no encontrada con ID ${intakeId}` 
+      });
+    }
+    
+    // Verificar que la toma pertenece al paciente
+    const patient = await Patient.findOne({
+      where: { dni: req.user.dni }
+    });
+    
+    if (!patient) {
+      logger.warn(`Paciente no encontrado para usuario DNI=${req.user.dni}`, 'MedicationIntakeController');
+      return res.status(404).json({
+        success: false,
+        message: 'No se encontró información de paciente asociada a este usuario'
+      });
+    }
+    
+    logger.info(`Verificando permisos: Paciente ID=${patient.id}, Receta Paciente ID=${intake.prescription_item.receta.paciente_id}`, 'MedicationIntakeController');
+    
+    if (intake.prescription_item.receta.paciente_id !== patient.id) {
+      logger.warn(`Acceso denegado: Paciente ID=${patient.id} intentando modificar toma del paciente ID=${intake.prescription_item.receta.paciente_id}`, 'MedicationIntakeController');
+      return res.status(403).json({ 
+        success: false, 
+        message: 'No tienes permiso para modificar esta toma' 
+      });
+    }
+    
+    // Cambiar el estado (toggle)
+    const currentState = intake.taken;
+    intake.taken = !currentState;
+    
+    // Si estamos marcando como tomado, actualizar el tiempo de toma
+    if (intake.taken) {
+      intake.taken_time = new Date();
+      logger.info(`Medicamento ID=${intakeId} marcado como tomado por paciente ID=${patient.id}`, 'MedicationIntakeController');
+    } else {
+      // Si estamos desmarcando, resetear el tiempo de toma
+      intake.taken_time = null;
+      logger.warn(`Medicamento ID=${intakeId} desmarcado por paciente ID=${patient.id}`, 'MedicationIntakeController');
+    }
+    
+    await intake.save();
+    
+    res.json({ 
+      success: true, 
+      message: intake.taken ? 'Medicamento marcado como tomado exitosamente' : 'Medicamento desmarcado exitosamente',
+      intake
+    });
+  } catch (error) {
+    logger.error(`Error al cambiar estado de toma: ${error.message}`, 'MedicationIntakeController');
+    logger.error(`Stack trace: ${error.stack}`, 'MedicationIntakeController');
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+};
+
 // Para médicos: obtener historial de tomas de un paciente específico
 const getPatientIntakeHistory = async (req, res) => {
   try {
@@ -683,6 +768,7 @@ module.exports = {
   getMyPendingIntakes,
   getMyIntakeHistory,
   markIntakeAsTaken,
+  toggleIntakeTaken,
   getPatientIntakeHistory,
   getMyDailyMedications,
   getMyDailyProgress,

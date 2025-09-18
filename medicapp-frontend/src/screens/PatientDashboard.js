@@ -218,19 +218,124 @@ const PatientDashboard = ({ navigation }) => {
 
   const handleMedicationToggle = async (medicationId, time) => {
     try {
+      // Buscar la toma correspondiente al medicamento y hora
       const medication = todayMedications.find(med => med.id === medicationId);
-      const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      const isTaken = medication.dateTaken?.includes(time);
-
-      if (isTaken) {
-        await medicationService.unmarkAsTaken(medicationId, dateStr, time);
-      } else {
-        await medicationService.markAsTaken(medicationId, dateStr, time);
+      if (!medication || !medication._intakes) {
+        Alert.alert('Error', 'No se encontró información de la toma');
+        return;
       }
-
-      // Reload medications
-      await loadMedications();
+      
+      // Encontrar el ID de la toma específica basada en la hora
+      const timeDate = new Date(`${format(selectedDate, 'yyyy-MM-dd')}T${time}`);
+      const intake = medication._intakes.find(i => {
+        const intakeTime = new Date(i.scheduled_time);
+        return format(intakeTime, 'HH:mm') === time;
+      });
+      
+      if (!intake) {
+        Alert.alert('Error', 'No se encontró la toma para esta hora');
+        return;
+      }
+      
+      const intakeId = intake.id;
+      console.log(`🔍 Intentando toggle para intake ID: ${intakeId}`);
+      const isTaken = medication.dateTaken?.includes(time);
+      
+      // Mostrar confirmación según el estado actual
+      if (isTaken) {
+        // Confirmación para desmarcar
+        Alert.alert(
+          "Desmarcar medicamento",
+          "¿Está seguro que desea desmarcar este medicamento? Utilice esta opción solo si lo marcó por error.",
+          [
+            { text: "Cancelar", style: "cancel" },
+            { 
+              text: "Desmarcar", 
+              style: "destructive",
+              onPress: async () => {
+                try {
+                  console.log(`🔄 Enviando solicitud a: /api/intakes/${intakeId}/toggle`);
+                  // Usar fetch directamente para depuración
+                  const token = await api.getToken();
+                  const response = await fetch(`http://192.168.18.20:4000/api/intakes/${intakeId}/toggle`, {
+                    method: 'PUT',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${token}`
+                    }
+                  });
+                  
+                  if (!response.ok) {
+                    console.error(`❌ Error HTTP: ${response.status} - ${response.statusText}`);
+                    const errorText = await response.text();
+                    console.error(`❌ Respuesta de error: ${errorText}`);
+                    throw new Error(`Error HTTP: ${response.status}`);
+                  }
+                  
+                  const data = await response.json();
+                  if (data.success) {
+                    console.log('✅ Medicamento desmarcado exitosamente');
+                    // Recargar medicamentos
+                    await loadMedications();
+                  } else {
+                    Alert.alert('Error', data.message || 'No se pudo desmarcar el medicamento');
+                  }
+                } catch (error) {
+                  console.error('Error al desmarcar medicamento:', error);
+                  Alert.alert('Error', 'No se pudo comunicar con el servidor');
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        // Confirmación para marcar como tomado
+        Alert.alert(
+          "Marcar medicamento",
+          "¿Confirma que ha tomado este medicamento?",
+          [
+            { text: "Cancelar", style: "cancel" },
+            { 
+              text: "Confirmar", 
+              onPress: async () => {
+                try {
+                  console.log(`🔄 Enviando solicitud a: /api/intakes/${intakeId}/toggle`);
+                  // Usar fetch directamente para depuración
+                  const token = await api.getToken();
+                  const response = await fetch(`http://192.168.18.20:4000/api/intakes/${intakeId}/toggle`, {
+                    method: 'PUT',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${token}`
+                    }
+                  });
+                  
+                  if (!response.ok) {
+                    console.error(`❌ Error HTTP: ${response.status} - ${response.statusText}`);
+                    const errorText = await response.text();
+                    console.error(`❌ Respuesta de error: ${errorText}`);
+                    throw new Error(`Error HTTP: ${response.status}`);
+                  }
+                  
+                  const data = await response.json();
+                  if (data.success) {
+                    console.log('✅ Medicamento marcado como tomado exitosamente');
+                    // Recargar medicamentos
+                    await loadMedications();
+                  } else {
+                    Alert.alert('Error', data.message || 'No se pudo marcar el medicamento como tomado');
+                  }
+                } catch (error) {
+                  console.error('Error al marcar medicamento:', error);
+                  Alert.alert('Error', 'No se pudo comunicar con el servidor');
+                }
+              }
+            }
+          ]
+        );
+      }
     } catch (error) {
+      console.error('❌ Error al manejar toma de medicamento:', error);
       Alert.alert('Error', 'No se pudo actualizar el estado del medicamento');
     }
   };

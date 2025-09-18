@@ -10,6 +10,8 @@ router.use(authenticateToken);
 router.get('/pending', medicationIntakeController.getMyPendingIntakes);
 router.get('/history', medicationIntakeController.getMyIntakeHistory);
 router.put('/:intakeId/taken', medicationIntakeController.markIntakeAsTaken);
+// Nueva ruta para toggle (marcar/desmarcar)
+router.put('/:intakeId/toggle', medicationIntakeController.toggleIntakeTaken);
 
 // Rutas para médicos
 router.get('/patient/:patientId', medicationIntakeController.getPatientIntakeHistory);

@@ -169,6 +169,30 @@ class ApiService {
       throw new Error('Error al obtener datos del usuario');
     }
   }
+
+  // Método PUT para actualizar recursos (usando fetch en lugar de axios)
+  async put(endpoint, data = {}) {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify(data)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error en la petición: ${response.status} ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error(`Error en PUT ${endpoint}:`, error);
+      throw error;
+    }
+  }
 }
 
 const apiService = new ApiService();

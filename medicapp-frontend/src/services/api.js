@@ -2,7 +2,7 @@ import { authService } from './authService';
 
 // API Base URL - Ajusta esto según tu configuración
 const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:3000/api' // Desarrollo
+  ? 'http://192.168.18.20:4000/api' // Desarrollo
   : 'https://tu-servidor-produccion.com/api'; // Producción
 
 class ApiService {

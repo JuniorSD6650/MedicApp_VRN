@@ -17,6 +17,8 @@ const CsvUploadScreen = ({ navigation }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadStep, setUploadStep] = useState('select'); // 'select', 'preview', 'validate', 'success'
   const [validationResults, setValidationResults] = useState(null);
+  const [progress, setProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Datos de ejemplo para simular el contenido del CSV
   const sampleCsvData = [
@@ -121,6 +123,72 @@ const CsvUploadScreen = ({ navigation }) => {
     setCsvData(null);
     setValidationResults(null);
     setUploadStep('select');
+  };
+
+  const showAlert = (title, message) => {
+    Alert.alert(title, message, [{ text: 'Aceptar' }]);
+  };
+
+  const handleUploadSuccess = (data) => {
+    setValidationResults(data);
+    setIsProcessing(false);
+    setUploadStep('success');
+  };
+
+  const uploadFile = async (file) => {
+    const TIMEOUT = 300000; // 5 minutos
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('http://192.168.18.20:4000/api/upload/csv', {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        throw new Error('Error en la carga');
+      }
+
+      // Leer la respuesta como stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const events = chunk.split('\n').filter(Boolean);
+
+        for (const event of events) {
+          const data = JSON.parse(event);
+          
+          if (data.type === 'progress') {
+            // Actualizar progreso
+            setProgress(data.data);
+          } else if (data.type === 'complete') {
+            // Procesar resultado final
+            handleUploadSuccess(data.data);
+            return;
+          }
+        }
+      }
+
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        showAlert('Error', 'La carga tomó demasiado tiempo');
+      } else {
+        showAlert('Error', error.message);
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setIsUploading(false);
+    }
   };
 
   const renderSelectStep = () => (

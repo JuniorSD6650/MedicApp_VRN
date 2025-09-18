@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Share
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { format } from 'date-fns';
@@ -48,8 +49,50 @@ const PrescriptionDetailScreen = ({ route, navigation }) => {
     );
   };
 
-  const handleSharePrescription = () => {
-    Alert.alert('Compartir', 'Esta función estará disponible próximamente');
+  const handleSharePrescription = async () => {
+    try {
+      // Formatear los medicamentos como texto
+      const medicationsList = prescription.medications.map(med => 
+        `• ${med.name} ${med.dosage}${med.taken ? ' (Tomado)' : ' (Pendiente)'}`
+      ).join('\n');
+      
+      // Calcular el progreso
+      const takenCount = prescription.medications.filter(med => med.taken).length;
+      const totalMeds = prescription.medications.length;
+      const progressPercentage = Math.round((takenCount / totalMeds) * 100);
+      
+      // Crear el mensaje para compartir
+      const message = `
+📋 RECETA MÉDICA DETALLADA
+📅 Fecha: ${format(new Date(prescription.date), 'dd MMMM yyyy', { locale: es })}
+👨‍⚕️ Doctor: ${prescription.doctorName}
+🔍 Diagnóstico: ${prescription.diagnosis}
+
+💊 MEDICAMENTOS:
+${medicationsList}
+
+📊 Progreso: ${takenCount}/${totalMeds} medicamentos tomados (${progressPercentage}%)
+
+📝 Notas: ${prescription.notes || 'Sin notas adicionales'}
+
+🏥 Compartido desde MedicApp
+      `;
+      
+      // Mostrar diálogo de compartir
+      const result = await Share.share({
+        message: message.trim(),
+        title: 'Receta Médica - MedicApp'
+      });
+      
+      if (result.action === Share.sharedAction) {
+        console.log('✅ Receta compartida exitosamente');
+      } else if (result.action === Share.dismissedAction) {
+        console.log('❌ Compartir cancelado');
+      }
+    } catch (error) {
+      console.error('Error al compartir receta:', error);
+      Alert.alert('Error', 'No se pudo compartir la receta');
+    }
   };
 
   return (
@@ -129,6 +172,11 @@ const PrescriptionDetailScreen = ({ route, navigation }) => {
 
 // Componente para cada medicamento
 const MedicationCard = ({ medication }) => {
+  // Asegurar que las propiedades tengan valores predeterminados útiles
+  const frequency = medication.frequency || 'Según indicación médica';
+  const duration = medication.duration || 'Según prescripción médica';
+  const instructions = medication.instructions || 'Seguir indicaciones médicas';
+  
   return (
     <View style={styles.medicationCard}>
       <View style={styles.medicationHeader}>
@@ -144,18 +192,28 @@ const MedicationCard = ({ medication }) => {
       <View style={styles.medicationDetails}>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Frecuencia:</Text>
-          <Text style={styles.detailValue}>{medication.frequency}</Text>
+          <Text style={styles.detailValue}>{frequency}</Text>
         </View>
         
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Duración:</Text>
-          <Text style={styles.detailValue}>{medication.duration}</Text>
+          <Text style={styles.detailValue}>{duration}</Text>
         </View>
 
-        {medication.instructions && (
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Estado:</Text>
+          <Text style={[
+            styles.detailValue, 
+            medication.taken ? styles.takenText : styles.pendingText
+          ]}>
+            {medication.taken ? '✓ Tomado' : '⏱ Pendiente'}
+          </Text>
+        </View>
+
+        {instructions && (
           <View style={styles.instructionsSection}>
             <Text style={styles.instructionsLabel}>Instrucciones:</Text>
-            <Text style={styles.instructionsText}>{medication.instructions}</Text>
+            <Text style={styles.instructionsText}>{instructions}</Text>
           </View>
         )}
       </View>
@@ -393,6 +451,14 @@ const styles = StyleSheet.create({
   },
   secondaryActionButtonText: {
     color: '#2E86AB',
+  },
+  takenText: {
+    color: '#28A745',
+    fontWeight: '500',
+  },
+  pendingText: {
+    color: '#FFC107',
+    fontWeight: '500',
   },
 });
 

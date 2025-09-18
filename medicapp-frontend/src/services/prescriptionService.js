@@ -26,22 +26,27 @@ class PrescriptionService {
     }
   }
 
+  // Obtener prescripciones por estado (todas, activas, completadas)
   async getPrescriptionsByStatus(status = 'all') {
     try {
-      const headers = this.ensureAuthentication();
+      console.log(`🔍 Obteniendo prescripciones con estado: ${status}`);
       
+      const headers = await this.ensureAuthentication();
       const response = await fetch(`${this.baseURL}/prescriptions/my-prescriptions?status=${status}`, {
         headers
       });
       
       if (!response.ok) {
-        throw new Error('Error al obtener recetas');
+        const errorText = await response.text();
+        console.error(`❌ Error HTTP ${response.status}: ${errorText}`);
+        throw new Error('Error al obtener prescripciones');
       }
       
       const data = await response.json();
+      console.log(`✅ Se obtuvieron ${data.data?.length || 0} prescripciones con estado ${status}`);
       return data;
     } catch (error) {
-      console.error('Error en getPrescriptionsByStatus:', error);
+      console.error(`❌ Error en getPrescriptionsByStatus (${status}):`, error);
       return { success: false, error: error.message };
     }
   }
@@ -175,20 +180,27 @@ class PrescriptionService {
     }
   }
 
+  // Obtener todas las prescripciones del paciente (corregido para usar la ruta correcta)
   async getPatientPrescriptions(patientId) {
     try {
-      const response = await fetch(`${this.baseURL}/prescriptions/patient/${patientId}`, {
-        headers: this.getAuthHeaders()
+      const userId = patientId || 'me'; // Si no se proporciona ID, usar 'me' para referirse al usuario actual
+      console.log(`🔍 Obteniendo prescripciones para paciente: ${userId}`);
+      
+      const headers = await this.ensureAuthentication();
+      const response = await fetch(`${this.baseURL}/prescriptions/patient/${userId}`, {
+        headers
       });
       
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Error HTTP ${response.status}: ${errorText}`);
         throw new Error('Error al obtener recetas del paciente');
       }
       
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error en getPatientPrescriptions:', error);
+      console.error('❌ Error en getPatientPrescriptions:', error);
       return { success: false, error: error.message };
     }
   }
@@ -350,6 +362,44 @@ class PrescriptionService {
       return data;
     } catch (error) {
       console.error('Error en searchPrescriptions:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Obtener todas las prescripciones del paciente (corregido para usar la ruta correcta)
+  async getAllPrescriptionsPatient() {
+    try {
+      const response = await fetch('/api/prescriptions/all-prescriptions', {
+        headers: this.getAuthHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al obtener todas las prescripciones del paciente');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error en getAllPrescriptionsPatient:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  // Obtener una prescripción específica por ID
+  async getPrescriptionById(prescriptionId) {
+    try {
+      const response = await fetch(`/api/prescriptions/${prescriptionId}`, {
+        headers: this.getAuthHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al obtener prescripción ID=${prescriptionId}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error(`Error en getPrescriptionById (ID=${prescriptionId}):`, error);
       return { success: false, error: error.message };
     }
   }

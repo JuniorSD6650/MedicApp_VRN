@@ -193,6 +193,29 @@ class ApiService {
       throw error;
     }
   }
+
+  // Método genérico fetch para solicitudes GET
+  async fetch(endpoint) {
+    try {
+      const token = await this.getToken();
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error en la petición: ${response.status} ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error(`Error en GET ${endpoint}:`, error);
+      throw error;
+    }
+  }
 }
 
 const apiService = new ApiService();

@@ -652,7 +652,10 @@ const getMyDailyMedicationsGrouped = async (req, res) => {
               model: Prescription,
               as: 'receta',
               required: true,
-              where: { paciente_id: patient.id }
+              where: { paciente_id: patient.id },
+              include: [
+                { model: Professional, as: 'profesional' }
+              ]
             },
             {
               model: Medication,
@@ -676,6 +679,7 @@ const getMyDailyMedicationsGrouped = async (req, res) => {
 
       const medication = intake.prescription_item.medicamento;
       const prescriptionItem = intake.prescription_item;
+      const prescription = prescriptionItem.receta;
 
       if (!medicationMap.has(medication.id)) {
         medicationMap.set(medication.id, {
@@ -684,7 +688,13 @@ const getMyDailyMedicationsGrouped = async (req, res) => {
           description: medication.unidad,
           dosage: prescriptionItem.cantidad_solicitada,
           frequency: prescriptionItem.dx_codigo,
-          instructions: prescriptionItem.dx_descripcion,
+          // Usar dx_descripcion como diagnóstico
+          diagnosis: prescriptionItem.dx_descripcion || 'No se especificó diagnóstico',
+          // Usar notas de la toma como instrucciones específicas
+          instructions: intake.notes || 'Seguir indicaciones médicas',
+          doctor: prescription.profesional ? 
+            `Dr. ${prescription.profesional.nombres} ${prescription.profesional.apellidos}` : 
+            'Doctor no especificado',
           times: [],
           dateTaken: []
         });

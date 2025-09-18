@@ -16,7 +16,7 @@ import { prescriptionService } from '../services/prescriptionService';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import api from '../services/api';
-import { Ionicons } from '@expo/vector-icons'; // Importar iconos
+import { Ionicons } from '@expo/vector-icons';
 
 const PrescriptionsScreen = ({ navigation }) => {
   const { user } = useAuth();
@@ -50,28 +50,13 @@ const PrescriptionsScreen = ({ navigation }) => {
           doctorName: prescription.profesional ? 
             `Dr. ${prescription.profesional.nombres} ${prescription.profesional.apellidos}` : 
             'Doctor no especificado',
-          // Usar dx_descripcion del primer item como diagnóstico general de la receta
-          diagnosis: prescription.items && prescription.items.length > 0 && prescription.items[0].dx_descripcion 
-            ? prescription.items[0].dx_descripcion 
-            : 'No se especificó diagnóstico',
-          medications: (prescription.items || []).map(item => {
-            // Buscar las tomas asociadas a este item para obtener las instrucciones (notes)
-            const intakes = item.intakes || [];
-            const instructions = intakes.length > 0 && intakes[0].notes 
-              ? intakes[0].notes 
-              : 'Seguir indicaciones médicas';
-              
-            return {
-              id: item.id,
-              name: item.medicamento?.descripcion || 'Medicamento no especificado',
-              dosage: `${item.cantidad_solicitada} unidad(es)`,
-              taken: item.tomado ? true : false,
-              // Agregar información de frecuencia y duración
-              frequency: item.dx_codigo ? `${item.dx_codigo} veces al día` : 'Según indicación médica',
-              duration: item.medicamento?.duracion || 'Según prescripción médica',
-              instructions: instructions
-            };
-          }),
+          diagnosis: prescription.diagnóstico || 'No se especificó diagnóstico',
+          medications: (prescription.items || []).map(item => ({
+            id: item.id,
+            name: item.medicamento?.descripcion || 'Medicamento no especificado',
+            dosage: `${item.cantidad_solicitada} unidad(es)`,
+            taken: item.tomado ? true : false
+          })),
           notes: prescription.observaciones || ''
         }));
         
@@ -97,16 +82,10 @@ const PrescriptionsScreen = ({ navigation }) => {
     }
   };
 
-  // Función auxiliar mejorada para determinar si todos los medicamentos de una prescripción han sido tomados
+  // Función auxiliar para determinar si todos los medicamentos de una prescripción han sido tomados
   const hasTakenAllMedications = (prescription) => {
     if (!prescription.items || prescription.items.length === 0) return false;
-    
-    // Verificar si todos los items están marcados como tomados
-    const allTaken = prescription.items.every(item => item.tomado === true);
-    
-    console.log(`Receta ID=${prescription.id}: ${allTaken ? 'Todos tomados' : 'Aún pendientes'}`);
-    
-    return allTaken;
+    return prescription.items.every(item => item.tomado);
   };
 
   const onRefresh = async () => {
@@ -241,44 +220,6 @@ const PrescriptionCard = ({ prescription, onPress }) => {
 
   const progress = calculateProgress();
 
-  // Función para compartir la receta
-  const handleShare = async () => {
-    try {
-      // Formatear los medicamentos como texto
-      const medicationsList = prescription.medications.map(med => 
-        `• ${med.name} ${med.dosage}${med.taken ? ' ✓' : ''}`
-      ).join('\n');
-      
-      // Crear el mensaje para compartir
-      const message = `
-📋 RECETA MÉDICA
-📅 Fecha: ${format(new Date(prescription.date), 'dd MMMM yyyy', { locale: es })}
-👨‍⚕️ Doctor: ${prescription.doctorName}
-🔍 Diagnóstico: ${prescription.diagnosis}
-
-💊 MEDICAMENTOS:
-${medicationsList}
-
-📝 Notas: ${prescription.notes || 'Sin notas adicionales'}
-      `;
-      
-      // Mostrar diálogo de compartir
-      const result = await Share.share({
-        message: message.trim(),
-        title: 'Receta Médica - MedicApp'
-      });
-      
-      if (result.action === Share.sharedAction) {
-        console.log('✅ Receta compartida exitosamente');
-      } else if (result.action === Share.dismissedAction) {
-        console.log('❌ Compartir cancelado');
-      }
-    } catch (error) {
-      console.error('Error al compartir receta:', error);
-      Alert.alert('Error', 'No se pudo compartir la receta');
-    }
-  };
-
   return (
     <TouchableOpacity style={styles.prescriptionCard} onPress={onPress}>
       <View style={styles.prescriptionHeader}>
@@ -288,13 +229,8 @@ ${medicationsList}
           </Text>
           <Text style={styles.doctorName}>{prescription.doctorName}</Text>
         </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-            <Ionicons name="share-outline" size={22} color="#2E86AB" />
-          </TouchableOpacity>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(prescription.status) }]}>
-            <Text style={styles.statusText}>{getStatusText(prescription.status)}</Text>
-          </View>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(prescription.status) }]}>
+          <Text style={styles.statusText}>{getStatusText(prescription.status)}</Text>
         </View>
       </View>
 
@@ -346,10 +282,169 @@ ${medicationsList}
   );
 };
 
+const PrescriptionDetail = ({ route, navigation }) => {
+  const { prescription } = route.params;
+
+  // Función para compartir la receta
+  const handleShare = async () => {
+    try {
+      // Formatear los medicamentos como texto
+      const medicationsList = prescription.medications.map(med => 
+        `• ${med.name} ${med.dosage}${med.taken ? ' (Tomado)' : ' (Pendiente)'}`
+      ).join('\n');
+      
+      // Crear el mensaje para compartir
+      const message = `
+📋 RECETA MÉDICA DETALLADA
+📅 Fecha: ${format(new Date(prescription.date), 'dd MMMM yyyy', { locale: es })}
+👨‍⚕️ Doctor: ${prescription.doctorName}
+🔍 Diagnóstico: ${prescription.diagnosis}
+
+💊 MEDICAMENTOS:
+${medicationsList}
+
+📊 Progreso: ${prescription.medications.filter(med => med.taken).length}/${prescription.medications.length} medicamentos tomados
+
+📝 Notas: ${prescription.notes || 'Sin notas adicionales'}
+
+🏥 Compartido desde MedicApp
+      `;
+      
+      // Mostrar diálogo de compartir
+      const result = await Share.share({
+        message: message.trim(),
+        title: 'Receta Médica - MedicApp'
+      });
+      
+      if (result.action === Share.sharedAction) {
+        console.log('✅ Receta compartida exitosamente');
+      } else if (result.action === Share.dismissedAction) {
+        console.log('❌ Compartir cancelado');
+      }
+    } catch (error) {
+      console.error('Error al compartir receta:', error);
+      Alert.alert('Error', 'No se pudo compartir la receta');
+    }
+  };
+  
+  // Configurar el botón de compartir en la barra de navegación
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity 
+          onPress={handleShare} 
+          style={styles.headerButton}
+        >
+          <Ionicons name="share-outline" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, prescription]);
+
+  // Calcular el progreso
+  const calculateProgress = () => {
+    if (!prescription.medications || prescription.medications.length === 0) return 0;
+    const takenCount = prescription.medications.filter(med => med.taken).length;
+    return Math.round((takenCount / prescription.medications.length) * 100);
+  };
+
+  const progress = calculateProgress();
+
+  return (
+    <ScrollView style={styles.container}>
+      {/* Encabezado de la receta */}
+      <View style={styles.header}>
+        <Text style={styles.date}>
+          {format(new Date(prescription.date), 'dd MMMM yyyy', { locale: es })}
+        </Text>
+        <Text style={styles.doctorName}>{prescription.doctorName}</Text>
+        
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusLabel}>Estado:</Text>
+          <View style={[
+            styles.statusBadge, 
+            { backgroundColor: prescription.status === 'active' ? '#28A745' : '#6C757D' }
+          ]}>
+            <Text style={styles.statusText}>
+              {prescription.status === 'active' ? 'Activa' : 'Completada'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Diagnóstico */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Diagnóstico</Text>
+        <Text style={styles.diagnosisText}>{prescription.diagnosis}</Text>
+      </View>
+
+      {/* Barra de progreso */}
+      <View style={styles.progressSection}>
+        <View style={styles.progressHeader}>
+          <Text style={styles.progressTitle}>Progreso</Text>
+          <Text style={styles.progressPercentage}>{progress}%</Text>
+        </View>
+        <View style={styles.progressBarContainer}>
+          <View 
+            style={[
+              styles.progressBar, 
+              { width: `${progress}%` }
+            ]} 
+          />
+        </View>
+        <Text style={styles.progressDetail}>
+          {prescription.medications.filter(med => med.taken).length} de {prescription.medications.length} medicamentos tomados
+        </Text>
+      </View>
+
+      {/* Lista de medicamentos */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Medicamentos</Text>
+        {prescription.medications.map((med, index) => (
+          <View key={index} style={styles.medicationItem}>
+            <View style={styles.medicationHeader}>
+              <Text style={styles.medicationName}>{med.name}</Text>
+              <View style={[
+                styles.medicationStatus, 
+                { backgroundColor: med.taken ? '#D4EDDA' : '#F8F9FA' }
+              ]}>
+                <Text style={[
+                  styles.medicationStatusText, 
+                  { color: med.taken ? '#28A745' : '#6C757D' }
+                ]}>
+                  {med.taken ? 'Tomado' : 'Pendiente'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.medicationDosage}>Dosis: {med.dosage}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Notas */}
+      {prescription.notes && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Notas</Text>
+          <View style={styles.notesContainer}>
+            <Text style={styles.notesText}>{prescription.notes}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Botón de compartir en el cuerpo de la pantalla */}
+      <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+        <Ionicons name="share-outline" size={20} color="#FFFFFF" />
+        <Text style={styles.shareButtonText}>Compartir Receta</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
+    padding: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -536,14 +631,102 @@ const styles = StyleSheet.create({
     backgroundColor: '#2E86AB',
     borderRadius: 4,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  detailContainer: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  detailContent: {
+    flex: 1,
+    padding: 20,
+  },
+  header: {
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#2E86AB',
+    marginBottom: 8,
+  },
+  date: {
+    fontSize: 16,
+    color: '#6C757D',
+  },
+  section: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#495057',
+    marginBottom: 8,
+  },
+  doctorName: {
+    fontSize: 16,
+    color: '#2E86AB',
+    marginBottom: 4,
+  },
+  diagnosis: {
+    fontSize: 16,
+    color: '#495057',
+    marginBottom: 12,
+  },
+  medicationItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  medicationName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#495057',
+  },
+  medicationDosage: {
+    fontSize: 14,
+    color: '#6C757D',
+    marginBottom: 4,
+  },
+  medicationStatus: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#28A745',
+  },
+  notes: {
+    fontSize: 14,
+    color: '#6C757D',
+    fontStyle: 'italic',
   },
   shareButton: {
-    padding: 8,
-    marginRight: 10,
+    backgroundColor: '#2E86AB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  shareButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  headerButton: {
+    padding: 10,
+    marginRight: 5,
   },
 });
 
 export default PrescriptionsScreen;
+export { PrescriptionDetail };

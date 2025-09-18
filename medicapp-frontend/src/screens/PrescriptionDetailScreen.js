@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,14 +6,100 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Share
+  Share,
+  ActivityIndicator,
+  RefreshControl
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
+import prescriptionDetailService from '../services/prescriptionDetailService';
+import { useFocusEffect } from '@react-navigation/native';
 
 const PrescriptionDetailScreen = ({ route, navigation }) => {
-  const { prescription } = route.params;
+  const { prescription: initialPrescription, prescriptionId } = route.params;
+  const [prescription, setPrescription] = useState(initialPrescription);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const { token } = useAuth();
+
+  // Función para cargar los datos actualizados de la receta
+  const loadPrescriptionData = useCallback(async () => {
+    if (!prescriptionId && !prescription?.id) {
+      console.warn("⚠️ No hay ID de prescripción para cargar datos actualizados");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const id = prescriptionId || prescription?.id;
+      console.log("🔄 Cargando datos actualizados de la prescripción ID:", id);
+      
+      // Asegurar que el token está establecido
+      await api.setAuthToken(token);
+      
+      const result = await prescriptionDetailService.getPrescriptionById(id);
+      
+      if (result.success && result.data) {
+        console.log("✅ Datos de prescripción actualizados correctamente");
+        setPrescription(result.data);
+      } else {
+        console.warn("⚠️ Error al cargar datos de prescripción:", result.error);
+        // Mostrar un mensaje solo si no tenemos datos previos
+        if (!prescription) {
+          Alert.alert(
+            "Error de conexión",
+            "No se pudieron cargar los datos de la receta. Verifica la conexión a internet o inténtalo más tarde.",
+            [{ text: "OK" }]
+          );
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error cargando datos de prescripción:", error);
+      if (!prescription) {
+        Alert.alert(
+          "Error",
+          "Ocurrió un problema al cargar los datos. Por favor, inténtalo nuevamente.",
+          [{ text: "OK" }]
+        );
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [prescriptionId, prescription?.id, token]);
+
+  // Cargar datos cuando la pantalla obtiene el foco
+  useFocusEffect(
+    useCallback(() => {
+      console.log("🔍 PrescriptionDetailScreen obtuvo el foco - recargando datos");
+      loadPrescriptionData();
+    }, [loadPrescriptionData])
+  );
+
+  // También cargar al montar inicialmente
+  useEffect(() => {
+    console.log("🔄 Montando PrescriptionDetailScreen - carga inicial");
+    loadPrescriptionData();
+  }, [loadPrescriptionData]);
+
+  // Función para actualizar los datos mediante pull-to-refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadPrescriptionData();
+  }, [loadPrescriptionData]);
+
+  // Mostrar un indicador de carga si no hay datos iniciales
+  if (loading && !prescription) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2E86AB" />
+        <Text style={styles.loadingText}>Cargando datos de la receta...</Text>
+      </View>
+    );
+  }
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -99,7 +185,17 @@ ${medicationsList}
     <View style={styles.container}>
       <StatusBar style="light" />
       
-      <ScrollView style={styles.content}>
+      <ScrollView 
+        style={styles.content}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            colors={["#2E86AB"]}
+            tintColor="#2E86AB" 
+          />
+        }
+      >
         {/* Header Information */}
         <View style={styles.headerCard}>
           <View style={styles.headerTop}>
@@ -459,6 +555,17 @@ const styles = StyleSheet.create({
   pendingText: {
     color: '#FFC107',
     fontWeight: '500',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6C757D',
   },
 });
 

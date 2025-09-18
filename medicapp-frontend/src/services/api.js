@@ -201,22 +201,26 @@ class ApiService {
   async fetch(endpoint) {
     try {
       const token = await this.getToken();
-      const url = `${this.baseURL}${endpoint}`;
+      let url = endpoint.startsWith('http') ? endpoint : `${this.baseURL}${endpoint}`;
       
       console.log(`🔍 Solicitando: ${url}`);
       
-      // Si estamos en desarrollo y la URL contiene /prescriptions/50001, simular respuesta mockeada
-      if (__DEV__ && endpoint.includes('/prescriptions/50001')) {
-        console.log('🔧 Detectada solicitud de prescripción 50001 en desarrollo - devolviendo datos mockeados');
-        return this.getMockPrescriptionResponse();
+      // Asegurarse de que tenemos todos los headers necesarios
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        console.log('🔑 Token incluido en solicitud');
+      } else {
+        console.warn('⚠️ No hay token para esta solicitud');
       }
       
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        }
+        headers: headers
       });
       
       // Registrar información detallada sobre la respuesta
@@ -226,10 +230,31 @@ class ApiService {
         const errorText = await response.text();
         console.error(`❌ Error HTTP ${response.status}: ${errorText}`);
         
-        // Para errores 404 en desarrollo, intentar devolver datos mockeados según el endpoint
-        if (__DEV__ && response.status === 404) {
+        // Si el endpoint no funciona, intentar con una URL alternativa
+        if (response.status === 404) {
+          // Si la ruta no empieza con /api, intentar con /api/
+          if (!endpoint.includes('/api/') && !endpoint.startsWith('http')) {
+            const alternativeEndpoint = `/api${endpoint}`;
+            console.log(`🔄 Intentando con URL alternativa: ${this.baseURL}${alternativeEndpoint}`);
+            
+            const altResponse = await fetch(`${this.baseURL}${alternativeEndpoint}`, {
+              method: 'GET',
+              headers: headers
+            });
+            
+            if (altResponse.ok) {
+              console.log(`✅ Éxito con URL alternativa: ${alternativeEndpoint}`);
+              return await altResponse.json();
+            } else {
+              console.error(`❌ Error también con URL alternativa: ${altResponse.status}`);
+            }
+          }
+        }
+        
+        // Solo en desarrollo, usar datos mockeados para endpoints específicos
+        if (__DEV__) {
           if (endpoint.includes('/prescriptions/')) {
-            console.log('🔧 Endpoint de prescripción no encontrado - devolviendo datos mockeados');
+            console.warn('⚠️ Fallback a datos mockeados en desarrollo');
             return this.getMockPrescriptionResponse();
           }
         }
@@ -237,10 +262,18 @@ class ApiService {
         throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
       }
       
-      const data = await response.json();
-      return data;
+      // Si todo va bien, devolver los datos JSON
+      return await response.json();
     } catch (error) {
       console.error(`❌ Error en GET ${endpoint}:`, error);
+      
+      // Si estamos en desarrollo y el endpoint contiene "prescriptions"
+      // proporcionar datos mockeados para permitir desarrollo sin backend
+      if (__DEV__ && endpoint.includes('/prescriptions/')) {
+        console.warn('⚠️ Error capturado, usando datos mockeados para desarrollo');
+        return this.getMockPrescriptionResponse();
+      }
+      
       throw error;
     }
   }

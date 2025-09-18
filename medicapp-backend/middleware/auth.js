@@ -5,15 +5,15 @@ const verifyToken = (req, res, next) => {
   logger.debug(`Verificando token para ruta: ${req.method} ${req.originalUrl}`, 'AuthMiddleware');
   
   const token = req.header('Authorization')?.replace('Bearer ', '');
-
   if (!token) {
     logger.warn(`Acceso denegado - Token no proporcionado para ruta: ${req.method} ${req.originalUrl}`, 'AuthMiddleware');
     return res.status(401).json({ message: 'Token de acceso requerido' });
   }
 
   try {
+    logger.debug(`Token recibido: ${token.substring(0, 10)}...`, 'AuthMiddleware');
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    req.user = decoded; // Adjuntar el usuario decodificado a la solicitud
     logger.info(`Token verificado correctamente. Usuario ID=${decoded.id}, Rol=${decoded.rol}`, 'AuthMiddleware');
     next();
   } catch (error) {

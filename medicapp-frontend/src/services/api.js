@@ -116,6 +116,31 @@ class ApiService {
       }, 2000);
     });
   }
+
+  async getCurrentUser(token) {
+    try {
+      console.log('🔍 Iniciando getCurrentUser con token:', token.substring(0, 20) + '...');
+      
+      const response = await fetch('http://192.168.18.20:4000/api/auth/me', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Datos recibidos en getCurrentUser:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Error en getCurrentUser:', error.message);
+      throw new Error('Error al obtener datos del usuario');
+    }
+  }
 }
 
 const apiService = new ApiService();

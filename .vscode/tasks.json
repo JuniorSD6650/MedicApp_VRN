@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Test /me endpoint",
+			"type": "shell",
+			"command": "curl -X GET http://localhost:4000/auth/me -H \"Authorization: Bearer <your_token_here>\"",
+			"args": [],
+			"isBackground": false
+		}
+	]
+}

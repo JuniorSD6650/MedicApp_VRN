@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -8,36 +8,112 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useAuth } from '../context/AuthContext';
+import { AuthContext } from '../context/AuthContext';
 import { medicationService } from '../services/medicationService';
 import { format, addDays, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import api from '../services/api';
 
-const PatientDashboard = () => {
-  const { user, logout } = useAuth();
+const PatientDashboard = ({ navigation }) => {
+  // Manejo seguro del contexto para prevenir errores en web
+  const authContext = typeof AuthContext !== 'undefined' ? useContext(AuthContext) : null;
+  const user = authContext?.user || {};
+  const logout = authContext?.logout || (() => console.log('Logout not available'));
+  const token = authContext?.token || '';
+
+  // Asegurarse de que userName siempre tenga un valor por defecto
+  const [userName, setUserName] = useState('Usuario');
+  
   const [todayMedications, setTodayMedications] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Depuración inicial
+  useEffect(() => {
+    console.log('🔍 Datos iniciales del usuario:', {
+      userId: user?.id || 'No disponible',
+      userEmail: user?.email || 'No disponible',
+      userName: user?.nombre || 'No disponible',
+      tokenExists: !!token
+    });
+  }, []);
+
+  // Efecto para actualizar medicamentos
   useEffect(() => {
     if (user?.id) {
       loadMedications();
+    } else {
+      // Si no hay usuario, finalizar carga después de un breve retraso
+      const timer = setTimeout(() => {
+        setLoading(false);
+      }, 1000);
+      return () => clearTimeout(timer);
     }
   }, [user?.id, selectedDate]);
 
+  // Modificar el useEffect para el nombre del usuario
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!token) {
+        console.log('🔑 No hay token disponible');
+        return;
+      }
+
+      try {
+        console.log('🔍 Obteniendo datos del usuario con token:', token.substring(0, 20) + '...');
+        const userData = await api.getCurrentUser(token);
+        
+        if (userData && userData.user) {
+          const { nombre } = userData.user;
+          
+          // Procesamiento del nombre completo
+          const nombreCompleto = nombre || '';
+          const nombres = nombreCompleto.split(' ');
+          const primerNombre = nombres[0] || 'Usuario';
+          
+          console.log('✅ Nombre procesado:', primerNombre);
+          setUserName(primerNombre);
+        } else {
+          console.log('⚠️ No se encontraron datos de usuario en la respuesta');
+          setUserName('Usuario');
+        }
+      } catch (error) {
+        console.error('❌ Error al obtener datos del usuario:', error);
+        // No cambiar el nombre si hay error, mantener el actual
+      }
+    };
+
+    fetchUserData();
+  }, [token]); // Asegúrate de que se ejecute cuando cambie el token
+
+  // Implementación adaptada para web/móvil
+  const isWeb = Platform.OS === 'web';
+
   const loadMedications = async () => {
+    // Solo intentar cargar medicamentos si hay un ID de usuario
+    if (!user?.id) {
+      setTodayMedications([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+    
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       const response = await medicationService.getMedicationsByDate(user.id, dateStr);
       
       if (response.success) {
         setTodayMedications(response.data);
+      } else {
+        setTodayMedications([]);
       }
     } catch (error) {
       console.error('Error loading medications:', error);
+      setTodayMedications([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -111,15 +187,42 @@ const PatientDashboard = () => {
     );
   }
 
+  // Versión simplificada para web si hay problemas con el contexto
+  if (isWeb && !authContext) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="dark" />
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <View>
+              <Text style={styles.greeting}>¡Hola!</Text>
+              <Text style={styles.subGreeting}>Bienvenido a MedicApp Web</Text>
+            </View>
+          </View>
+        </View>
+        <ScrollView style={styles.content}>
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>💊</Text>
+            <Text style={styles.emptyTitle}>Versión web simplificada</Text>
+            <Text style={styles.emptyMessage}>
+              Por favor utiliza la aplicación móvil para una experiencia completa
+            </Text>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // Versión completa
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View>
-            <Text style={styles.greeting}>¡Hola, {user?.name}!</Text>
+            <Text style={styles.greeting}>
+              ¡Hola, {userName}!
+            </Text>
             <Text style={styles.subGreeting}>¿Cómo te sientes hoy?</Text>
           </View>
           <View style={styles.headerButtons}>
@@ -135,26 +238,29 @@ const PatientDashboard = () => {
           </View>
         </View>
       </View>
-
-      <ScrollView 
+      
+      {/* Contenido principal */}
+      <ScrollView
         style={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#2E86AB"
+          />
         }
       >
-        {/* Date Navigator */}
+        {/* Navegador de fechas */}
         <View style={styles.dateNavigator}>
           <TouchableOpacity style={styles.dateButton} onPress={() => navigateDate('prev')}>
             <Text style={styles.dateButtonText}>◀</Text>
           </TouchableOpacity>
           
           <View style={styles.dateDisplay}>
-            <Text style={styles.dateText}>
-              {format(selectedDate, 'EEEE, d MMMM', { locale: es })}
-            </Text>
+            <Text style={styles.dateText}>{format(selectedDate, 'EEEE, d MMMM', { locale: es })}</Text>
             {!isToday && (
               <TouchableOpacity onPress={goToToday}>
-                <Text style={styles.todayButton}>Ir a hoy</Text>
+                <Text style={styles.todayButton}>Hoy</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -163,39 +269,44 @@ const PatientDashboard = () => {
             <Text style={styles.dateButtonText}>▶</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Progress Card */}
+        
+        {/* Tarjeta de progreso */}
         <View style={styles.progressCard}>
-          <Text style={styles.progressTitle}>Progreso del día</Text>
+          <Text style={styles.progressTitle}>Tu progreso hoy</Text>
+          
           <View style={styles.progressStats}>
             <View style={styles.progressCircle}>
               <Text style={styles.progressPercentage}>{completionPercentage}%</Text>
-              <Text style={styles.progressLabel}>Completado</Text>
             </View>
+            
             <View style={styles.progressDetails}>
-              <Text style={styles.progressDetail}>{takenDoses} de {totalDoses} dosis tomadas</Text>
-              <Text style={styles.progressDetail}>{todayMedications.length} medicamentos</Text>
+              <Text style={styles.progressDetail}>
+                Medicamentos tomados: {takenDoses}
+              </Text>
+              <Text style={styles.progressDetail}>
+                Total de dosis: {totalDoses}
+              </Text>
             </View>
           </View>
         </View>
-
-        {/* Medications List */}
+        
+        {/* Sección de medicamentos */}
         <View style={styles.medicationsSection}>
           <Text style={styles.sectionTitle}>Medicamentos</Text>
           
           {todayMedications.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyEmoji}>💊</Text>
-              <Text style={styles.emptyTitle}>No hay medicamentos</Text>
+              <Text style={styles.emptyTitle}>Sin medicamentos para hoy</Text>
               <Text style={styles.emptyMessage}>
-                No tienes medicamentos programados para este día
+                Parece que no tienes medicamentos programados para hoy. ¡Disfruta tu día!
               </Text>
             </View>
           ) : (
             todayMedications.map(medication => (
-              <MedicationCard
-                key={medication.id}
-                medication={medication}
+              <MedicationCard 
+                key={medication.id} 
+                medication={medication} 
                 onToggle={handleMedicationToggle}
               />
             ))

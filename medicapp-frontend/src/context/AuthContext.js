@@ -1,120 +1,92 @@
-import React, { createContext, useState, useContext, useEffect, useMemo } from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import apiService from '../services/api';
+import api from '../services/api';
 
-const AuthContext = createContext();
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export const AuthContext = createContext({
+  isAuthenticated: false,
+  user: null,
+  token: null,
+  loading: true,
+  login: () => {},
+  logout: () => {},
+  updateUser: () => {},
+  checkAuthStatus: () => {},
+});
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkAuthStatus();
+    const loadStoredToken = async () => {
+      try {
+        console.log('🔑 Cargando datos de autenticación almacenados...');
+        const storedToken = await AsyncStorage.getItem('auth_token');
+        const storedUser = await AsyncStorage.getItem('user_data');
+        
+        if (storedToken && storedUser) {
+          const userData = JSON.parse(storedUser);
+          setToken(storedToken);
+          setUser(userData);
+          setIsAuthenticated(true);
+        }
+      } catch (error) {
+        console.error('🔑 Error cargando datos almacenados:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStoredToken();
   }, []);
 
-  const checkAuthStatus = async () => {
+  const handleLogin = async (token, userData) => {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      const userData = await AsyncStorage.getItem('userData');
+      console.log('🔑 Iniciando login con token y datos de usuario');
       
-      if (token && userData) {
-        const parsedUserData = JSON.parse(userData);
-        apiService.setAuthToken(token);
-        setUser(parsedUserData);
-        setIsAuthenticated(true);
+      if (!token || !userData) {
+        console.error('🔑 Error: Datos de login incompletos');
+        return { success: false, error: 'Datos de autenticación incompletos' };
       }
-    } catch (error) {
-      console.error('Error checking auth status:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const login = async (token, user) => {
-    try {
-      console.log('AuthContext - login iniciado con:', { token, user });
       
-      // Guardar en AsyncStorage
-      await AsyncStorage.setItem('authToken', token);
-      await AsyncStorage.setItem('userData', JSON.stringify(user));
+      let userToStore = userData.user ? userData.user : userData;
       
-      // Actualizar estado
-      setUser(user);
+      await AsyncStorage.setItem('auth_token', token);
+      await AsyncStorage.setItem('user_data', JSON.stringify(userToStore));
+      
+      setToken(token);
+      setUser(userToStore);
       setIsAuthenticated(true);
       
-      console.log('AuthContext - login exitoso, usuario establecido:', user);
-      return { success: true, user };
+      return { success: true };
     } catch (error) {
-      console.error('AuthContext - error en login:', error);
-      return { 
-        success: false, 
-        error: error.message || 'Error de autenticación' 
-      };
+      console.error('🔑 Error en login:', error);
+      return { success: false, error: error.message };
     }
   };
 
-  const register = async (userData) => {
+  const handleLogout = async () => {
     try {
-      setLoading(true);
-      const response = await apiService.register(userData);
+      await AsyncStorage.removeItem('auth_token');
+      await AsyncStorage.removeItem('user_data');
       
-      if (response.success && response.token && response.user) {
-        await AsyncStorage.setItem('authToken', response.token);
-        await AsyncStorage.setItem('userData', JSON.stringify(response.user));
-        
-        apiService.setAuthToken(response.token);
-        setUser(response.user);
-        setIsAuthenticated(true);
-        
-        return { success: true, user: response.user };
-      } else {
-        throw new Error(response.message || 'Invalid response from server');
-      }
-    } catch (error) {
-      console.error('Register error:', error);
-      return { 
-        success: false, 
-        error: error.message || 'Error en el registro' 
-      };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const logout = async () => {
-    try {
-      setLoading(true);
-      
-      // Llamar al endpoint de logout en el servidor
-      await apiService.logout();
-      
-      // Limpiar almacenamiento local
-      await AsyncStorage.removeItem('authToken');
-      await AsyncStorage.removeItem('userData');
-      
-      // Limpiar estado
-      apiService.setAuthToken(null);
+      api.setAuthToken(null);
       setUser(null);
       setIsAuthenticated(false);
+      setToken(null);
       
       return { success: true };
     } catch (error) {
       console.error('Logout error:', error);
       // Incluso si falla el logout en el servidor, limpiar el cliente
-      await AsyncStorage.removeItem('authToken');
-      await AsyncStorage.removeItem('userData');
-      apiService.setAuthToken(null);
+      await AsyncStorage.removeItem('auth_token');
+      await AsyncStorage.removeItem('user_data');
+      api.setAuthToken(null);
       setUser(null);
       setIsAuthenticated(false);
+      setToken(null);
       
       return { 
         success: false, 
@@ -127,15 +99,26 @@ export const AuthProvider = ({ children }) => {
 
   const updateUser = async (updatedUserData) => {
     try {
-      setUser(updatedUserData);
-      await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
+      const newUserData = { ...user, ...updatedUserData };
+      setUser(newUserData);
+      await AsyncStorage.setItem('user_data', JSON.stringify(newUserData));
       return { success: true };
     } catch (error) {
-      console.error('Update user error:', error);
-      return { 
-        success: false, 
-        error: error.message || 'Error al actualizar usuario' 
-      };
+      console.error('Error updating user:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const checkAuthStatus = async () => {
+    try {
+      const storedToken = await AsyncStorage.getItem('auth_token');
+      if (!storedToken) {
+        return { success: false };
+      }
+      // Aquí podrías validar el token con el backend si es necesario
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
   };
 
@@ -143,12 +126,12 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     isAuthenticated,
-    login,
-    register,
-    logout,
+    token,
+    login: handleLogin,
+    logout: handleLogout,
     updateUser,
     checkAuthStatus,
-  }), [user, loading, isAuthenticated]);
+  }), [user, loading, isAuthenticated, token]);
 
   return (
     <AuthContext.Provider value={value}>
@@ -156,3 +139,9 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+
+export const useAuth = () => {
+  return useContext(AuthContext);
+};
+
+export default AuthProvider;

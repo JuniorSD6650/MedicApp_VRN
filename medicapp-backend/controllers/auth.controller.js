@@ -110,4 +110,27 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { register, login };
+const getMe = async (req, res) => {
+  logger.startOperation('Obtener información del usuario autenticado', { userId: req.user.id }, 'AuthController');
+  try {
+    logger.debug(`Buscando usuario con ID=${req.user.id}`, 'AuthController');
+    const user = await User.findByPk(req.user.id, {
+      attributes: { exclude: ['password_hash'] } // Excluir el hash de la contraseña
+    });
+
+    if (!user) {
+      logger.warn(`Usuario no encontrado: ID=${req.user.id}`, 'AuthController');
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    logger.info(`Información del usuario obtenida: ID=${user.id}, Email=${user.email}`, 'AuthController');
+    res.json({ user });
+  } catch (error) {
+    logger.operationError('Obtener información del usuario autenticado', error, 'AuthController');
+    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
+  } finally {
+    logger.endOperation('Obtener información del usuario autenticado', { userId: req.user.id }, 'AuthController');
+  }
+};
+
+module.exports = { register, login, getMe };

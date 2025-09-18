@@ -134,6 +134,7 @@ const initializeApp = async () => {
       console.log('\n🔐 Autenticación:');
       console.log('  - POST /api/auth/register                  # Registrar nuevo usuario');
       console.log('  - POST /api/auth/login                     # Iniciar sesión');
+      console.log('  - POST /api/auth/me                        # Obtener información del usuario');
 
       // Rutas de prescripciones (CRUD completo)
       console.log('\n💊 Prescripciones (Recetas):');

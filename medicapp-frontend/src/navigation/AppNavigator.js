@@ -3,7 +3,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { useAuth } from '../context/AuthContext';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 
 // Import screens
 import LoginScreen from '../screens/LoginScreen';
@@ -146,8 +146,38 @@ const ProfileStackNavigator = () => {
   );
 };
 
-// Doctor Drawer Navigator
+// Doctor Navigator - Condicional según la plataforma
 const DoctorNavigator = () => {
+  // En Web, usamos Stack Navigator en lugar de Drawer
+  if (Platform.OS === 'web') {
+    return (
+      <Stack.Navigator
+        initialRouteName="DoctorDashboard"
+        screenOptions={{
+          headerStyle: { backgroundColor: '#2E86AB' },
+          headerTintColor: '#FFFFFF',
+        }}
+      >
+        <Stack.Screen 
+          name="DoctorDashboard" 
+          component={DoctorDashboard}
+          options={{ title: 'Panel Médico' }}
+        />
+        <Stack.Screen 
+          name="PatientSearch" 
+          component={PatientStackNavigator}
+          options={{ title: 'Buscar Pacientes' }}
+        />
+        <Stack.Screen 
+          name="Profile" 
+          component={ProfileScreen}
+          options={{ title: 'Mi Perfil' }}
+        />
+      </Stack.Navigator>
+    );
+  }
+  
+  // En móvil, mantenemos el Drawer Navigator
   return (
     <Drawer.Navigator
       initialRouteName="DoctorDashboard"
@@ -205,8 +235,38 @@ const PatientStackNavigator = () => {
   );
 };
 
-// Admin Drawer Navigator
+// Admin Navigator - Condicional según la plataforma
 const AdminNavigator = () => {
+  // En Web, usamos Stack Navigator en lugar de Drawer
+  if (Platform.OS === 'web') {
+    return (
+      <Stack.Navigator
+        initialRouteName="AdminDashboard"
+        screenOptions={{
+          headerStyle: { backgroundColor: '#2E86AB' },
+          headerTintColor: '#FFFFFF',
+        }}
+      >
+        <Stack.Screen 
+          name="AdminDashboard" 
+          component={AdminDashboard}
+          options={{ title: 'Panel Administrativo' }}
+        />
+        <Stack.Screen 
+          name="CsvUpload" 
+          component={CsvUploadScreen}
+          options={{ title: 'Cargar CSV' }}
+        />
+        <Stack.Screen 
+          name="Profile" 
+          component={ProfileScreen}
+          options={{ title: 'Mi Perfil' }}
+        />
+      </Stack.Navigator>
+    );
+  }
+  
+  // En móvil, mantenemos el Drawer Navigator
   return (
     <Drawer.Navigator
       initialRouteName="AdminDashboard"
@@ -267,6 +327,24 @@ const AppNavigator = () => {
   }
 
   // Renderizar el navegador correspondiente según el rol
+  // Proporcionar una implementación alternativa para web
+  if (Platform.OS === 'web') {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {user?.rol === 'admin' && (
+          <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
+        )}
+        {user?.rol === 'medico' && (
+          <Stack.Screen name="DoctorDashboard" component={DoctorDashboard} />
+        )}
+        {user?.rol === 'paciente' && (
+          <Stack.Screen name="PatientDashboard" component={PatientDashboard} />
+        )}
+      </Stack.Navigator>
+    );
+  }
+
+  // Implementación normal para móvil
   switch (user?.rol) {
     case 'admin':
       return <AdminNavigator />;

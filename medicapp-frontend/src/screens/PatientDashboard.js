@@ -17,6 +17,7 @@ import { prescriptionService } from '../services/prescriptionService';
 import { format, addDays, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import api from '../services/api';
+import { useFocusEffect } from '@react-navigation/native';
 
 const PatientDashboard = ({ navigation }) => {
   // Manejo seguro del contexto para prevenir errores en web
@@ -44,18 +45,30 @@ const PatientDashboard = ({ navigation }) => {
     });
   }, []);
 
-  // Efecto para actualizar medicamentos
+  // Cargar medicamentos/progreso tanto al montar como al enfocar la pantalla
   useEffect(() => {
     if (user?.id) {
       loadMedications();
-    } else {
-      // Si no hay usuario, finalizar carga después de un breve retraso
-      const timer = setTimeout(() => {
-        setLoading(false);
-      }, 1000);
-      return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, selectedDate]);
+
+  // Asegurarse de que se carguen los datos cuando el token o el usuario cambian
+  useEffect(() => {
+    if (token && user?.id) {
+      console.log('🔄 Datos de usuario/token actualizados, cargando medicamentos...');
+      loadMedications();
+    }
+  }, [token, user?.id]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user?.id && token) {
+        console.log('🔄 Pantalla enfocada, cargando medicamentos...');
+        loadMedications();
+      }
+    }, [user?.id, token, selectedDate])
+  );
 
   // Modificar el useEffect para el nombre del usuario
   useEffect(() => {
@@ -96,7 +109,8 @@ const PatientDashboard = ({ navigation }) => {
   const isWeb = Platform.OS === 'web';
 
   const loadMedications = async () => {
-    if (!user?.id) {
+    if (!user?.id || !token) {
+      console.log('⚠️ No hay usuario o token disponible, no se cargarán medicamentos');
       setTodayMedications([]);
       setDailyProgress({ total: 0, taken: 0, percentage: 0 });
       setLoading(false);
@@ -105,6 +119,9 @@ const PatientDashboard = ({ navigation }) => {
     }
 
     try {
+      // Asegurarse de que el token está establecido en el API
+      await api.setAuthToken(token);
+      
       // Formatear fecha para la API
       const formattedDate = format(selectedDate, 'yyyy-MM-dd');
       console.log('📅 Fecha seleccionada para la API:', formattedDate);
